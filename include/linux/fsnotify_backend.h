@@ -239,6 +239,7 @@ struct fsnotify_mark {
 	union {	/* Object pointer [mark->lock, group->mark_mutex] */
 		struct inode *inode;	/* inode this mark is associated with */
 		struct vfsmount *mnt;	/* vfsmount this mark is associated with */
+        struct task_struct *task; /* task  this mark is associated with */
 	};
 	/* Events types to ignore [mark->lock, group->mark_mutex] */
 	__u32 ignored_mask;
@@ -359,8 +360,9 @@ extern struct fsnotify_event *fsnotify_remove_first_event(struct fsnotify_group 
 extern void fsnotify_recalc_vfsmount_mask(struct vfsmount *mnt);
 /* run all marks associated with an inode and update inode->i_fsnotify_mask */
 extern void fsnotify_recalc_inode_mask(struct inode *inode);
+extern void fsnotify_recalc_task_mask(struct task_struct *task);
 /* run all marks associated with a task and update task->pnotify_mask */
-extern void fsnotify_recalc_task_mask(struct task_struct * task);
+// extern void fsnotify_recalc_task_mask(struct task_struct * task);
 extern void fsnotify_init_mark(struct fsnotify_mark *mark, void (*free_mark)(struct fsnotify_mark *mark));
 /* find (and take a reference) to a mark associated with group and inode */
 extern struct fsnotify_mark *fsnotify_find_inode_mark(struct fsnotify_group *group, struct inode *inode);
@@ -414,7 +416,7 @@ int pnotify_create_process_exit_event(struct task_struct *task,
 
 int pnotify_create_annotate_event(struct task_struct *task,
         struct fsnotify_mark *fsn_mark,
-        struct fsnotify_group *group, const char *msg);
+        struct fsnotify_group *group, char *msg);
 
 
 /* put here because inotify does some weird stuff when destroying watches */

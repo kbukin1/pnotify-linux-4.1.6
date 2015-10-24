@@ -424,8 +424,8 @@ static int pnotify_add_to_idr(struct idr *idr, spinlock_t *idr_lock,
 			      int *last_wd,
 			      struct pnotify_inode_mark *i_mark)
 {
-	int ret;
 #if 0
+	int ret;
 	do {
 		if (unlikely(!idr_pre_get(idr, GFP_KERNEL)))
 			return -ENOMEM;
@@ -440,8 +440,23 @@ static int pnotify_add_to_idr(struct idr *idr, spinlock_t *idr_lock,
 		}
 		spin_unlock(idr_lock);
 	} while (ret == -EAGAIN);
-#endif
 	return ret;
+#endif
+	int ret;
+
+	idr_preload(GFP_KERNEL);
+	spin_lock(idr_lock);
+
+	ret = idr_alloc_cyclic(idr, i_mark, 1, 0, GFP_NOWAIT);
+	if (ret >= 0) {
+		/* we added the mark to the idr, take a reference */
+		i_mark->wd = ret;
+		fsnotify_get_mark(&i_mark->fsn_mark);
+	}
+
+	spin_unlock(idr_lock);
+	idr_preload_end();
+	return ret < 0 ? ret : 0;
 }
 
 static
@@ -513,6 +528,7 @@ static void pnotify_remove_from_idr(struct fsnotify_group *group,
 	 * if it wasn't....
 	 */
 	if (wd == -1) {
+        // XXX-4.1.6
 #if 0
 		WARN_ONCE(1, "%s: i_mark=%p i_mark->wd=%d i_mark->group=%p"
 			" i_mark->inode=%p\n", __func__, i_mark, i_mark->wd,
@@ -524,6 +540,7 @@ static void pnotify_remove_from_idr(struct fsnotify_group *group,
 	/* Lets look in the idr to see if we find it */
 	found_i_mark = pnotify_idr_find_locked(group, wd);
 	if (unlikely(!found_i_mark)) {
+        // XXX-4.1.6
 #if 0
 		WARN_ONCE(1, "%s: i_mark=%p i_mark->wd=%d i_mark->group=%p"
 			" i_mark->inode=%p\n", __func__, i_mark, i_mark->wd,
@@ -538,6 +555,7 @@ static void pnotify_remove_from_idr(struct fsnotify_group *group,
 	 * fucked up somewhere.
 	 */
 	if (unlikely(found_i_mark != i_mark)) {
+        // XXX-4.1.6
 #if 0
 		WARN_ONCE(1, "%s: i_mark=%p i_mark->wd=%d i_mark->group=%p "
 			"mark->task=%p found_i_mark=%p found_i_mark->wd=%d "
@@ -556,6 +574,7 @@ static void pnotify_remove_from_idr(struct fsnotify_group *group,
 	 * one ref grabbed by pnotify_idr_find
 	 */
 	if (unlikely(atomic_read(&i_mark->fsn_mark.refcnt) < 3)) {
+        // XXX-4.1.6
 #if 0
 		printk(KERN_ERR "%s: i_mark=%p i_mark->wd=%d i_mark->group=%p"
 			" i_mark->inode=%p\n", __func__, i_mark, i_mark->wd,
@@ -693,7 +712,7 @@ skip_send_ignore:
 
 int pnotify_create_annotate_event(struct task_struct *task,
                                   struct fsnotify_mark *fsn_mark,
-				  struct fsnotify_group *group, const char *msg)
+				  struct fsnotify_group *group, char *msg)
 {
 	pnotify_debug(PNOTIFY_DEBUG_LEVEL_VERBOSE,
 		      "%s: Entering: group: 0x%p, msg: %s\n",
@@ -1066,7 +1085,6 @@ SYSCALL_DEFINE0(pnotify_init)
 	struct fsnotify_group *group;
 	int ret;
 
-	return -ENOENT;
 #ifndef CONFIG_PNOTIFY_USER
 	return -ENOENT;
 #endif
@@ -1096,20 +1114,20 @@ SYSCALL_DEFINE4(pnotify_add_watch, int, events_fd, u32, pid, u32, mask,
 		u32, flags)
 {
 	struct fsnotify_group *group;
-	struct file *filp;
-	int ret, fput_needed;
-	return -ENOENT;
-#if 0
+  struct fd f;
+	int ret;
 	ret = pnotify_perm_check(pid);
 	if (ret)
 		return ret;
 
-	filp = fget_light(events_fd, &fput_needed);
-	if (unlikely(!filp))
-		return -EBADF;
+  // KB_TODO: verify if mask has a valid value
+
+  f = fdget(events_fd);
+  if (unlikely(!f.file))
+    return -EBADF; 
 
 	/* verify that this is really a pnotify instance */
-	if (unlikely(filp->f_op != &pnotify_fops)) {
+  if (unlikely(f.file->f_op != &pnotify_fops)) { 
 		ret = -EINVAL;
 		goto fput_and_out;
 	}
@@ -1119,13 +1137,12 @@ SYSCALL_DEFINE4(pnotify_add_watch, int, events_fd, u32, pid, u32, mask,
 		      __func__, events_fd, mask, flags, pid);
 
 	/* group is held in place by fget on fd */
-	group = filp->private_data;
+  group = f.file->private_data;
 
 	/* create/update an inode mark */
 	ret = pnotify_update_watch(group, pid, mask);
 fput_and_out:
-	fput_light(filp, fput_needed);
-#endif
+  fdput(f);
 	return ret;
 }
 
