@@ -21,6 +21,8 @@ extern int fsnotify_compare_groups(struct fsnotify_group *a,
 
 extern void fsnotify_set_inode_mark_mask_locked(struct fsnotify_mark *fsn_mark,
 						__u32 mask);
+extern void fsnotify_set_task_mark_mask_locked(struct fsnotify_mark *fsn_mark,
+                    __u32 mask);
 /* Add mark to a proper place in mark list */
 extern int fsnotify_add_mark_list(struct hlist_head *head,
 				  struct fsnotify_mark *mark,
@@ -34,10 +36,18 @@ extern int fsnotify_add_vfsmount_mark(struct fsnotify_mark *mark,
 				      struct fsnotify_group *group, struct vfsmount *mnt,
 				      int allow_dups);
 
+/* add a mark to a task */
+extern int fsnotify_add_task_mark(struct fsnotify_mark *mark,
+        struct fsnotify_group *group,
+        struct task_struct *task,
+        int allow_dups);
+
 /* vfsmount specific destruction of a mark */
 extern void fsnotify_destroy_vfsmount_mark(struct fsnotify_mark *mark);
 /* inode specific destruction of a mark */
 extern void fsnotify_destroy_inode_mark(struct fsnotify_mark *mark);
+/* given a mark, flag it to be freed when all references are dropped */
+extern void fsnotify_destroy_task_mark(struct fsnotify_mark *mark);
 /* Destroy all marks in the given list */
 extern void fsnotify_destroy_marks(struct list_head *to_free);
 /* Find mark belonging to given group in the list of marks */
