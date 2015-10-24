@@ -863,7 +863,7 @@ nfsd_finish_read(struct file *file, unsigned long *count, int host_err)
 	if (host_err >= 0) {
 		nfsdstats.io_read += host_err;
 		*count = host_err;
-		fsnotify_access(file);
+		fsnotify_access(file, 0);
 		return 0;
 	} else 
 		return nfserrno(host_err);
@@ -986,7 +986,7 @@ nfsd_vfs_write(struct svc_rqst *rqstp, struct svc_fh *fhp, struct file *file,
 		goto out_nfserr;
 	*cnt = host_err;
 	nfsdstats.io_write += host_err;
-	fsnotify_modify(file);
+	fsnotify_modify(file, 0);
 
 	if (stable) {
 		if (use_wgather) {
@@ -1274,18 +1274,18 @@ nfsd_create(struct svc_rqst *rqstp, struct svc_fh *fhp,
 	host_err = 0;
 	switch (type) {
 	case S_IFREG:
-		host_err = vfs_create(dirp, dchild, iap->ia_mode, true);
+		host_err = vfs_create(dirp, dchild, iap->ia_mode, true, 0);
 		if (!host_err)
 			nfsd_check_ignore_resizing(iap);
 		break;
 	case S_IFDIR:
-		host_err = vfs_mkdir(dirp, dchild, iap->ia_mode);
+		host_err = vfs_mkdir(dirp, dchild, iap->ia_mode, 0);
 		break;
 	case S_IFCHR:
 	case S_IFBLK:
 	case S_IFIFO:
 	case S_IFSOCK:
-		host_err = vfs_mknod(dirp, dchild, iap->ia_mode, rdev);
+		host_err = vfs_mknod(dirp, dchild, iap->ia_mode, rdev, 0);
 		break;
 	}
 	if (host_err < 0)
@@ -1443,7 +1443,7 @@ do_nfsd_create(struct svc_rqst *rqstp, struct svc_fh *fhp,
 		goto out;
 	}
 
-	host_err = vfs_create(dirp, dchild, iap->ia_mode, true);
+	host_err = vfs_create(dirp, dchild, iap->ia_mode, true, 0);
 	if (host_err < 0) {
 		fh_drop_write(fhp);
 		goto out_nfserr;
@@ -1576,7 +1576,7 @@ nfsd_symlink(struct svc_rqst *rqstp, struct svc_fh *fhp,
 	if (IS_ERR(dnew))
 		goto out_nfserr;
 
-	host_err = vfs_symlink(d_inode(dentry), dnew, path);
+	host_err = vfs_symlink(d_inode(dentry), dnew, path, 0);
 	err = nfserrno(host_err);
 	if (!err)
 		err = nfserrno(commit_metadata(fhp));
@@ -1644,7 +1644,7 @@ nfsd_link(struct svc_rqst *rqstp, struct svc_fh *ffhp,
 	err = nfserr_noent;
 	if (d_really_is_negative(dold))
 		goto out_dput;
-	host_err = vfs_link(dold, dirp, dnew, NULL);
+	host_err = vfs_link(dold, dirp, dnew, NULL, 0);
 	if (!host_err) {
 		err = nfserrno(commit_metadata(ffhp));
 		if (!err)
@@ -1737,7 +1737,7 @@ nfsd_rename(struct svc_rqst *rqstp, struct svc_fh *ffhp, char *fname, int flen,
 	if (ffhp->fh_export->ex_path.dentry != tfhp->fh_export->ex_path.dentry)
 		goto out_dput_new;
 
-	host_err = vfs_rename(fdir, odentry, tdir, ndentry, NULL, 0);
+	host_err = vfs_rename(fdir, odentry, tdir, ndentry, NULL, 0, 0);
 	if (!host_err) {
 		host_err = commit_metadata(tfhp);
 		if (!host_err)
@@ -1807,7 +1807,7 @@ nfsd_unlink(struct svc_rqst *rqstp, struct svc_fh *fhp, int type,
 		type = d_inode(rdentry)->i_mode & S_IFMT;
 
 	if (type != S_IFDIR)
-		host_err = vfs_unlink(dirp, rdentry, NULL);
+		host_err = vfs_unlink(dirp, rdentry, NULL, 0);
 	else
 		host_err = vfs_rmdir(dirp, rdentry);
 	if (!host_err)
