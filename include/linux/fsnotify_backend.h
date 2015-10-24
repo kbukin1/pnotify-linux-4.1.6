@@ -229,11 +229,12 @@ struct fsnotify_mark {
 					 * the end of SRCU period before it can
 					 * be freed */
 	spinlock_t lock;		/* protect group and inode */
-	struct hlist_node obj_list;	/* list of marks for inode / vfsmount */
+	struct hlist_node obj_list;	/* list of marks for inode / vfsmount / task*/
 	struct list_head free_list;	/* tmp list used when freeing this mark */
 	union {
 		struct inode *inode;	/* inode this mark is associated with */
 		struct vfsmount *mnt;	/* vfsmount this mark is associated with */
+        struct task_struct *task; /* task  this mark is associated with */
 	};
 	__u32 ignored_mask;		/* events types to ignore */
 #define FSNOTIFY_MARK_FLAG_INODE		0x01
@@ -241,6 +242,7 @@ struct fsnotify_mark {
 #define FSNOTIFY_MARK_FLAG_OBJECT_PINNED	0x04
 #define FSNOTIFY_MARK_FLAG_IGNORED_SURV_MODIFY	0x08
 #define FSNOTIFY_MARK_FLAG_ALIVE		0x10
+#define FSNOTIFY_MARK_FLAG_TASK     0x20
 	unsigned int flags;		/* vfsmount or inode mark? */
 	void (*free_mark)(struct fsnotify_mark *mark); /* called on final put+free */
 };
@@ -352,8 +354,9 @@ extern struct fsnotify_event *fsnotify_remove_first_event(struct fsnotify_group 
 extern void fsnotify_recalc_vfsmount_mask(struct vfsmount *mnt);
 /* run all marks associated with an inode and update inode->i_fsnotify_mask */
 extern void fsnotify_recalc_inode_mask(struct inode *inode);
+extern void fsnotify_recalc_task_mask(struct task_struct *task);
 /* run all marks associated with a task and update task->pnotify_mask */
-extern void fsnotify_recalc_task_mask(struct task_struct * task);
+// extern void fsnotify_recalc_task_mask(struct task_struct * task);
 extern void fsnotify_init_mark(struct fsnotify_mark *mark, void (*free_mark)(struct fsnotify_mark *mark));
 /* find (and take a reference) to a mark associated with group and inode */
 extern struct fsnotify_mark *fsnotify_find_inode_mark(struct fsnotify_group *group, struct inode *inode);
@@ -405,7 +408,7 @@ int pnotify_create_process_exit_event(struct task_struct *task,
 
 int pnotify_create_annotate_event(struct task_struct *task,
         struct fsnotify_mark *fsn_mark,
-        struct fsnotify_group *group, const char *msg);
+        struct fsnotify_group *group, char *msg);
 
 
 /* put here because inotify does some weird stuff when destroying watches */
