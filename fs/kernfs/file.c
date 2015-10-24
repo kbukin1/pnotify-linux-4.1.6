@@ -843,7 +843,7 @@ repeat:
 
 		dentry = d_find_any_alias(inode);
 		if (dentry) {
-			fsnotify_parent(NULL, dentry, FS_MODIFY);
+			fsnotify_parent(NULL, dentry, FS_MODIFY, 0);
 			fsnotify(inode, FS_MODIFY, inode, FSNOTIFY_EVENT_INODE,
 				 NULL, 0);
 			dput(dentry);

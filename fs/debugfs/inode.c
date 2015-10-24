@@ -344,7 +344,7 @@ struct dentry *debugfs_create_file(const char *name, umode_t mode,
 	inode->i_fop = fops ? fops : &debugfs_file_operations;
 	inode->i_private = data;
 	d_instantiate(dentry, inode);
-	fsnotify_create(d_inode(dentry->d_parent), dentry);
+	fsnotify_create(d_inode(dentry->d_parent), dentry, 0);
 	return end_creating(dentry);
 }
 EXPORT_SYMBOL_GPL(debugfs_create_file);
@@ -427,7 +427,7 @@ struct dentry *debugfs_create_dir(const char *name, struct dentry *parent)
 	inc_nlink(inode);
 	d_instantiate(dentry, inode);
 	inc_nlink(d_inode(dentry->d_parent));
-	fsnotify_mkdir(d_inode(dentry->d_parent), dentry);
+	fsnotify_mkdir(d_inode(dentry->d_parent), dentry, 0);
 	return end_creating(dentry);
 }
 EXPORT_SYMBOL_GPL(debugfs_create_dir);
@@ -694,7 +694,7 @@ struct dentry *debugfs_rename(struct dentry *old_dir, struct dentry *old_dentry,
 	d_move(old_dentry, dentry);
 	fsnotify_move(d_inode(old_dir), d_inode(new_dir), old_name,
 		d_is_dir(old_dentry),
-		NULL, old_dentry);
+		NULL, old_dentry, 0, 0);
 	fsnotify_oldname_free(old_name);
 	unlock_rename(new_dir, old_dir);
 	dput(dentry);
