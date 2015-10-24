@@ -310,7 +310,7 @@ int vfs_fallocate(struct file *file, int mode, loff_t offset, loff_t len)
 	 * unchanged, e.g. when using flag FALLOC_FL_KEEP_SIZE.
 	 */
 	if (ret == 0)
-		fsnotify_modify(file);
+		fsnotify_modify(file, 0);
 
 	sb_end_write(inode->i_sb);
 	return ret;

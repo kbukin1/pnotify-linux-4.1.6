@@ -41,7 +41,7 @@ int iterate_dir(struct file *file, struct dir_context *ctx)
 		ctx->pos = file->f_pos;
 		res = file->f_op->iterate(file, ctx);
 		file->f_pos = ctx->pos;
-		fsnotify_access(file);
+		fsnotify_access(file,0);
 		file_accessed(file);
 	}
 	mutex_unlock(&inode->i_mutex);

@@ -639,7 +639,7 @@ struct inode *devpts_pty_new(struct pts_fs_info *fsi, dev_t device, int index,
 	dentry = d_alloc_name(root, s);
 	if (dentry) {
 		d_add(dentry, inode);
-		fsnotify_create(d_inode(root), dentry);
+		fsnotify_create(d_inode(root), dentry, 0);
 	} else {
 		iput(inode);
 		inode = ERR_PTR(-ENOMEM);
