@@ -375,7 +375,7 @@ extern int fsnotify_add_mark(struct fsnotify_mark *mark, struct fsnotify_group *
                              struct inode *inode, struct vfsmount *mnt,
                              struct task_struct *task, int allow_dups);
 extern int fsnotify_add_mark_locked(struct fsnotify_mark *mark, struct fsnotify_group *group,
-				    struct inode *inode, struct vfsmount *mnt, int allow_dups);
+				    struct inode *inode, struct vfsmount *mnt, struct task_struct *task, int allow_dups);
 /* given a group and a mark, flag mark to be freed when all references are dropped */
 extern void fsnotify_destroy_mark(struct fsnotify_mark *mark,
 				  struct fsnotify_group *group);
