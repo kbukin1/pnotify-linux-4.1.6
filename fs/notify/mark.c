@@ -394,7 +394,8 @@ err:
 }
 
 int fsnotify_add_mark(struct fsnotify_mark *mark, struct fsnotify_group *group,
-		      struct inode *inode, struct vfsmount *mnt, int allow_dups)
+		      struct inode *inode, struct vfsmount *mnt, 
+              struct task_struct *task, int allow_dups)
 {
 	int ret;
 	mutex_lock(&group->mark_mutex);
