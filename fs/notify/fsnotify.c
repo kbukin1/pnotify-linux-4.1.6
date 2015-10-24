@@ -87,7 +87,8 @@ void __fsnotify_update_child_dentry_flags(struct inode *inode)
 }
 
 /* Notify this dentry's parent about a child's events. */
-int __fsnotify_parent(struct path *path, struct dentry *dentry, __u32 mask)
+int __fsnotify_parent(struct path *path, struct dentry *dentry, __u32 mask,
+                      struct path *pnotify_path)
 {
 	struct dentry *parent;
 	struct inode *p_inode;
@@ -111,10 +112,10 @@ int __fsnotify_parent(struct path *path, struct dentry *dentry, __u32 mask)
 
 		if (path)
 			ret = fsnotify(p_inode, mask, path, FSNOTIFY_EVENT_PATH,
-				       dentry->d_name.name, 0);
+				       dentry->d_name.name, 0, 0, 0);
 		else
 			ret = fsnotify(p_inode, mask, dentry->d_inode, FSNOTIFY_EVENT_INODE,
-				       dentry->d_name.name, 0);
+				       dentry->d_name.name, 0, 0, 0);
 	}
 
 	dput(parent);
@@ -189,7 +190,8 @@ static int send_to_group(struct inode *to_tell,
  * notification event in whatever means they feel necessary.
  */
 int fsnotify(struct inode *to_tell, __u32 mask, void *data, int data_is,
-	     const unsigned char *file_name, u32 cookie)
+	     const unsigned char *file_name, u32 cookie,
+         struct path *path, unsigned long status)
 {
 	struct hlist_node *inode_node = NULL, *vfsmount_node = NULL;
 	struct fsnotify_mark *inode_mark = NULL, *vfsmount_mark = NULL;
