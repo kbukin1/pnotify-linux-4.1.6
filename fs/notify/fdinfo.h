@@ -13,6 +13,10 @@ struct file;
 void inotify_show_fdinfo(struct seq_file *m, struct file *f);
 #endif
 
+#ifdef CONFIG_PNOTIFY_USER
+void pnotify_show_fdinfo(struct seq_file *m, struct file *f);
+#endif
+
 #ifdef CONFIG_FANOTIFY
 void fanotify_show_fdinfo(struct seq_file *m, struct file *f);
 #endif

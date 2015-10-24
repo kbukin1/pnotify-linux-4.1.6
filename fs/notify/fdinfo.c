@@ -14,6 +14,7 @@
 #include <linux/exportfs.h>
 
 #include "inotify/inotify.h"
+#include "pnotify/pnotify.h"
 #include "../fs/mount.h"
 
 #if defined(CONFIG_PROC_FS)
@@ -105,6 +106,67 @@ void inotify_show_fdinfo(struct seq_file *m, struct file *f)
 }
 
 #endif /* CONFIG_INOTIFY_USER */
+
+#ifdef CONFIG_PNOTIFY_USER
+
+static void pnotify_fdinfo(struct seq_file *m, struct fsnotify_mark *mark)
+{
+	struct inotify_inode_mark *inode_mark;
+	struct inode *inode;
+
+	if (!(mark->flags & (FSNOTIFY_MARK_FLAG_ALIVE | FSNOTIFY_MARK_FLAG_INODE)))
+		return;
+
+	inode_mark = container_of(mark, struct inotify_inode_mark, fsn_mark);
+	inode = igrab(mark->inode);
+	if (inode) {
+		seq_printf(m, "inotify wd:%x ino:%lx sdev:%x mask:%x ignored_mask:%x ",
+			   inode_mark->wd, inode->i_ino, inode->i_sb->s_dev,
+			   mark->mask, mark->ignored_mask);
+		show_mark_fhandle(m, inode);
+		seq_putc(m, '\n');
+		iput(inode);
+
+        seq_printf(m, "pnotify wd:%x ino:%lx sdev:%x "
+                "mask:%x ignored_mask:%x ",
+                inode_mark->wd, inode->i_ino,
+                inode->i_sb->s_dev,
+                mark->mask, mark->ignored_mask);
+        show_mark_fhandle(m, inode);
+        seq_putc(m, '\n');
+        iput(inode);
+	}
+
+#if 0
+    struct pnotify_inode_mark *inode_mark;
+    struct inode *inode;
+    int ret = 0;
+
+    if (!(mark->flags & (FSNOTIFY_MARK_FLAG_ALIVE | FSNOTIFY_MARK_FLAG_INODE)))
+        return 0;
+
+    inode_mark = container_of(mark, struct pnotify_inode_mark, fsn_mark);
+    inode = igrab(mark->i.inode);
+    if (inode) {
+        ret = seq_printf(m, "pnotify wd:%x ino:%lx sdev:%x "
+                "mask:%x ignored_mask:%x ",
+                inode_mark->wd, inode->i_ino,
+                inode->i_sb->s_dev,
+                mark->mask, mark->ignored_mask);
+        ret |= show_mark_fhandle(m, inode);
+        ret |= seq_putc(m, '\n');
+        iput(inode);
+    }
+#endif
+}
+
+void pnotify_show_fdinfo(struct seq_file *m, struct file *f)
+{
+    return show_fdinfo(m, f, pnotify_fdinfo);
+}
+
+#endif /* CONFIG_PNOTIFY_USER */
+
 
 #ifdef CONFIG_FANOTIFY
 
