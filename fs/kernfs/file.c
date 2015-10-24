@@ -845,7 +845,7 @@ repeat:
 		if (dentry) {
 			fsnotify_parent(NULL, dentry, FS_MODIFY, 0);
 			fsnotify(inode, FS_MODIFY, inode, FSNOTIFY_EVENT_INODE,
-				 NULL, 0);
+				 NULL, 0, 0, 0);
 			dput(dentry);
 		}
 
