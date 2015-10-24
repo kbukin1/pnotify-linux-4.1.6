@@ -268,7 +268,7 @@ int notify_change(struct dentry * dentry, struct iattr * attr, struct inode **de
 		error = simple_setattr(dentry, attr);
 
 	if (!error) {
-		fsnotify_change(dentry, ia_valid);
+		fsnotify_change(dentry, ia_valid, 0);
 		ima_inode_post_setattr(dentry);
 		evm_inode_post_setattr(dentry, ia_valid);
 	}

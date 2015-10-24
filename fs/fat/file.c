@@ -93,7 +93,7 @@ static int fat_ioctl_set_attributes(struct file *file, u32 __user *user_attr)
 	if (err)
 		goto out_unlock_inode;
 
-	fsnotify_change(file->f_path.dentry, ia.ia_valid);
+	fsnotify_change(file->f_path.dentry, ia.ia_valid, 0);
 	if (sbi->options.sys_immutable) {
 		if (attr & ATTR_SYS)
 			inode->i_flags |= S_IMMUTABLE;
