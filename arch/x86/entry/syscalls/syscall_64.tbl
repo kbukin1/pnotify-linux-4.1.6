@@ -332,6 +332,10 @@
 323	common	userfaultfd		sys_userfaultfd
 324	common	membarrier		sys_membarrier
 325	common	mlock2			sys_mlock2
+350 64  pnotify_init    sys_pnotify_init
+351 64  pnotify_add_watch sys_pnotify_add_watch
+352 64  pnotify_rm_watch  sys_pnotify_rm_watch
+353 64  pnotify_annotate  sys_pnotify_annotate
 
 #
 # x32-specific system call numbers start at 512 to avoid cache impact
