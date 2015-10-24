@@ -1491,14 +1491,14 @@ extern bool inode_owner_or_capable(const struct inode *inode);
 /*
  * VFS helper functions..
  */
-extern int vfs_create(struct inode *, struct dentry *, umode_t, bool);
-extern int vfs_mkdir(struct inode *, struct dentry *, umode_t);
-extern int vfs_mknod(struct inode *, struct dentry *, umode_t, dev_t);
-extern int vfs_symlink(struct inode *, struct dentry *, const char *);
-extern int vfs_link(struct dentry *, struct inode *, struct dentry *, struct inode **);
+extern int vfs_create(struct inode *, struct dentry *, umode_t, bool, struct path *);
+extern int vfs_mkdir(struct inode *, struct dentry *, umode_t, struct path *);
+extern int vfs_mknod(struct inode *, struct dentry *, umode_t, dev_t, struct path *);
+extern int vfs_symlink(struct inode *, struct dentry *, const char *, struct path *);
+extern int vfs_link(struct dentry *, struct inode *, struct dentry *, struct inode **, struct path *);
 extern int vfs_rmdir(struct inode *, struct dentry *);
-extern int vfs_unlink(struct inode *, struct dentry *, struct inode **);
-extern int vfs_rename(struct inode *, struct dentry *, struct inode *, struct dentry *, struct inode **, unsigned int);
+extern int vfs_unlink(struct inode *, struct dentry *, struct inode **, struct path *);
+extern int vfs_rename(struct inode *, struct dentry *, struct inode *, struct dentry *, struct inode **, unsigned int, struct path *);
 extern int vfs_whiteout(struct inode *, struct dentry *);
 
 /*
