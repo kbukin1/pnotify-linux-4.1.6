@@ -594,7 +594,7 @@ static int inotify_new_watch(struct fsnotify_group *group,
 
 	/* we are on the idr, now get on the inode */
 	ret = fsnotify_add_mark_locked(&tmp_i_mark->fsn_mark, group, inode,
-				       NULL, 0);
+				       NULL, NULL, 0);
 	if (ret) {
 		/* we failed to get on the inode, get off the idr */
 		inotify_remove_from_idr(group, tmp_i_mark);
