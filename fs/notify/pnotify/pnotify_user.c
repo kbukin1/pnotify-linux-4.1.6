@@ -46,6 +46,7 @@
 #include <linux/wait.h>
 
 #include "pnotify.h"
+#include "../fdinfo.h"
 
 #include <asm/ioctls.h>
 
@@ -173,6 +174,16 @@ static unsigned int pnotify_poll(struct file *file, poll_table *wait)
 	return ret;
 }
 
+static int round_event_name_len(struct fsnotify_event *fsn_event)
+{
+    struct pnotify_event_info *event;
+
+    event = PNOTIFY_E(fsn_event);
+    if (!event->name_len)
+        return 0;
+    return roundup(event->name_len + 1, sizeof(struct pnotify_event));
+}
+
 /*
  * Get a pnotify_kernel_event if one exists and is small
  * enough to fit in "count". Return an error pointer if
@@ -180,9 +191,8 @@ static unsigned int pnotify_poll(struct file *file, poll_table *wait)
  *
  * Called with the group->notification_mutex held.
  */
-#if 0
 static
-struct fsnotify_event *pnotify_get_one_event(struct fsnotify_group *group,
+struct fsnotify_event *get_one_event(struct fsnotify_group *group,
 					     size_t count)
 {
 	size_t event_size = sizeof(struct pnotify_event);
@@ -191,23 +201,21 @@ struct fsnotify_event *pnotify_get_one_event(struct fsnotify_group *group,
 	if (fsnotify_notify_queue_is_empty(group))
 		return NULL;
 
-	event = fsnotify_peek_notify_event(group);
+	event = fsnotify_peek_first_event(group);
 
 	pr_debug("%s: group=%p event=%p\n", __func__, group, event);
 
-	if (event->name_len)
-		event_size += roundup(event->name_len + 1, event_size);
+    event_size += round_event_name_len(event);
 
 	if (event_size > count)
 		return ERR_PTR(-EINVAL);
 
 	/* held the notification_mutex the whole time, so this is the
 	 * same event we peeked above */
-	fsnotify_remove_notify_event(group);
+	fsnotify_remove_first_event(group);
 
 	return event;
 }
-#endif
 
 /*
  * Copy an event to user space, returning how much we copied.
@@ -215,51 +223,36 @@ struct fsnotify_event *pnotify_get_one_event(struct fsnotify_group *group,
  * We already checked that the event size is smaller than the
  * buffer we had in "get_one_event()" above.
  */
-#if 0
 static ssize_t pnotify_copy_event_to_user(struct fsnotify_group *group,
-					  struct fsnotify_event *event,
-					  char __user *buf)
+                                				  struct fsnotify_event *fsn_event,
+                                          char __user *buf)
 {
 	struct pnotify_event pnotify_event;
-	struct fsnotify_event_private_data *fsn_priv;
-	struct pnotify_event_private_data *priv;
+	struct pnotify_event_info *event;
 	size_t event_size = sizeof(struct pnotify_event);
-	size_t name_len = 0;
+	size_t name_len;
+	size_t pad_name_len;
 
-	pr_debug("%s: group=%p event=%p\n", __func__, group, event);
+	pr_debug("%s: group=%p event=%p\n", __func__, group, fsn_event);
 
-	/* we get the pnotify watch descriptor from the event private data */
-	spin_lock(&event->lock);
-	fsn_priv = fsnotify_remove_priv_from_event(group, event);
-	spin_unlock(&event->lock);
-
-	if (!fsn_priv) {
-		pnotify_event.wd = -1;
-		pnotify_event.pid = 0;
-		pnotify_event.ppid = 0;
-	} else {
-		priv = container_of(fsn_priv, struct pnotify_event_private_data,
-				    fsnotify_event_priv_data);
-		pnotify_event.wd = priv->wd;
-		pnotify_free_event_priv(fsn_priv);
-	}
-
+	event = PNOTIFY_E(fsn_event);
+	name_len = event->name_len;
 	/*
-	 * round up event->name_len so it is a multiple of event_size
+	 * round up name length so it is a multiple of event_size
 	 * plus an extra byte for the terminating '\0'.
 	 */
-	if (event->name_len)
-		name_len = roundup(event->name_len + 1, event_size);
-	pnotify_event.len = name_len;
-
-	pnotify_event.mask = pnotify_mask_to_arg(event->mask);
+	pad_name_len = round_event_name_len(fsn_event);
+	pnotify_event.len = pad_name_len;
+	pnotify_event.mask = pnotify_mask_to_arg(fsn_event->mask);
+	pnotify_event.wd = event->wd;
 	pnotify_event.cookie = event->sync_cookie;
-	pnotify_event.pid = event->event_pid;
-	pnotify_event.ppid = event->event_ppid;
-	pnotify_event.tgid = event->event_tgid;
-	pnotify_event.jiffies = event->event_jiffies;
-	pnotify_event.inode_num = event->event_inode_num;
-	pnotify_event.status = event->event_status;
+
+  pnotify_event.pid = event->pid;
+  pnotify_event.ppid = event->ppid;
+  pnotify_event.tgid = event->tgid;
+  pnotify_event.jiffies = event->jiffies;
+  pnotify_event.inode_num = event->inode_num;
+  pnotify_event.status = event->status;
 
 	/* send the main event */
 	if (copy_to_user(buf, &pnotify_event, event_size))
@@ -268,27 +261,24 @@ static ssize_t pnotify_copy_event_to_user(struct fsnotify_group *group,
 	buf += event_size;
 
 	/*
-	 * fsnotify only stores pathname, so here we have to send the pathname
-	 * and then pad that pathname out to a multiple of sizeof(pnotify_event)
-	 * with zeros.  I get my zeros from the nul_pnotify_event.
+	 * fsnotify only stores the pathname, so here we have to send the pathname
+	 * and then pad that pathname out to a multiple of sizeof(inotify_event)
+	 * with zeros.
 	 */
-	if (name_len) {
-		unsigned int len_to_zero = name_len - event->name_len;
+	if (pad_name_len) {
 		/* copy the path name */
-		if (copy_to_user(buf, event->file_name, event->name_len))
+		if (copy_to_user(buf, event->name, name_len))
 			return -EFAULT;
-		buf += event->name_len;
+		buf += name_len;
 
 		/* fill userspace with 0's */
-		if (clear_user(buf, len_to_zero))
+		if (clear_user(buf, pad_name_len - name_len))
 			return -EFAULT;
-		buf += len_to_zero;
-		event_size += name_len;
+		event_size += pad_name_len;
 	}
 
 	return event_size;
 }
-#endif
 
 static ssize_t pnotify_read(struct file *file, char __user *buf,
 			    size_t count, loff_t *pos)
@@ -377,48 +367,44 @@ static long pnotify_ioctl(struct file *file, unsigned int cmd,
 			  unsigned long arg)
 {
 	struct fsnotify_group *group;
-	struct fsnotify_event_holder *holder;
-	struct fsnotify_event *event;
+	struct fsnotify_event *fsn_event;
 	void __user *p;
 	int ret = -ENOTTY;
 	size_t send_len = 0;
-#if 0
+
 	group = file->private_data;
 	p = (void __user *) arg;
 
 	pr_debug("%s: group=%p cmd=%u\n", __func__, group, cmd);
-	pnotify_debug(PNOTIFY_DEBUG_LEVEL_MINIMAL,
-		      "%s: group=%p cmd=%u\n", __func__, group, cmd);
+  pnotify_debug(PNOTIFY_DEBUG_LEVEL_MINIMAL,
+      "%s: group=%p cmd=%u\n", __func__, group, cmd);
 
 	switch (cmd) {
 	case FIONREAD:
 		mutex_lock(&group->notification_mutex);
-		list_for_each_entry(holder, &group->notification_list,
-				    event_list) {
-			event = holder->event;
+		list_for_each_entry(fsn_event, &group->notification_list,
+				    list) {
 			send_len += sizeof(struct pnotify_event);
-			if (event->name_len)
-				send_len += roundup(event->name_len + 1,
-						sizeof(struct pnotify_event));
+			send_len += round_event_name_len(fsn_event);
 		}
 		mutex_unlock(&group->notification_mutex);
 		ret = put_user(send_len, (int __user *) p);
 		break;
 	}
-#endif
+
 	return ret;
 }
 
 static const struct file_operations pnotify_fops = {
+  .show_fdinfo  = pnotify_show_fdinfo,
 	.poll		= pnotify_poll,
 	.read		= pnotify_read,
-	.fasync		= pnotify_fasync,
+	.fasync		= fsnotify_fasync,
 	.release	= pnotify_release,
 	.unlocked_ioctl	= pnotify_ioctl,
 	.compat_ioctl	= pnotify_ioctl,
 	.llseek		= noop_llseek,
 };
-
 
 static int pnotify_add_to_idr(struct idr *idr, spinlock_t *idr_lock,
 			      struct pnotify_inode_mark *i_mark)
