@@ -117,7 +117,7 @@ int vfs_fstatat(int dfd, const char __user *filename, struct kstat *stat,
 	unsigned int lookup_flags = 0;
 
 	if ((flag & ~(AT_SYMLINK_NOFOLLOW | AT_NO_AUTOMOUNT |
-		      AT_EMPTY_PATH)) != 0)
+		      AT_EMPTY_PATH | AT_STAT_NONOTIFY)) != 0)
 		goto out;
 
 	if (!(flag & AT_SYMLINK_NOFOLLOW))
@@ -132,7 +132,7 @@ retry:
 	error = vfs_getattr(&path, stat);
 	path_put(&path);
 #ifdef CONFIG_PNOTIFY_USER
-  if (!error)
+  if (!error && !(flag & AT_STAT_NONOTIFY))
     pnotify_stat(&path);
 #endif
 	if (retry_estale(error, lookup_flags)) {
