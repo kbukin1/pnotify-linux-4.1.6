@@ -410,7 +410,7 @@ int pnotify_create_process_exit_event(struct task_struct *task,
 
 int pnotify_create_annotate_event(struct task_struct *task,
         struct fsnotify_mark *fsn_mark,
-        struct fsnotify_group *group, char *msg);
+        struct fsnotify_group *group, const char *msg);
 
 void fsnotify_clear_marks_by_task(struct task_struct *task);
 
