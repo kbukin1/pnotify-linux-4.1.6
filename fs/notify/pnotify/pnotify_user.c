@@ -580,7 +580,7 @@ int pnotify_create_process_event(struct task_struct *task,
 				 struct fsnotify_mark *fsn_mark,
 				 struct fsnotify_group *group,
 				 u32 event_type,
-				 char *msg)
+				 const char *msg)
 {
   int ret = 0;
   pnotify_debug(PNOTIFY_DEBUG_LEVEL_VERBOSE,
@@ -664,7 +664,7 @@ skip_send_ignore:
 
 int pnotify_create_annotate_event(struct task_struct *task,
                                   struct fsnotify_mark *fsn_mark,
-				  struct fsnotify_group *group, char *msg)
+				  struct fsnotify_group *group, const char *msg)
 {
 	pnotify_debug(PNOTIFY_DEBUG_LEVEL_VERBOSE,
 		      "%s: Entering: group: 0x%p, msg: %s\n",
@@ -699,46 +699,50 @@ int pnotify_create_process_exit_event(struct task_struct *task,
 }
 
 /*
- * Given an task, send a PN_ANNOTATE to each observer of that task.
+ * Given an task, send an event (of type event_type) to each observer of that task.
  */
-int pnotify_broadcast_annotate(struct task_struct *task, char *msg)
+int pnotify_broadcast_event(struct task_struct *task, u32 event_type, const char *msg)
 {
 	struct fsnotify_mark *mark, *lmark;
-	struct hlist_node *pos, *n;
+	struct hlist_node *n;
 	int ret = -ENOENT;
 	int lastret = 0;
+
+  // KB_TODO: can we return right away is task is not tracked?
 	LIST_HEAD(bcast_list);
-#if 0
+
 	mutex_lock(&pnotify_annotate_mutex);
 
 	task_lock(task);
-	hlist_for_each_entry_safe(mark, pos, n, &task->pnotify_marks,
-				  t.t_list) {
-		list_add(&mark->t.bcast_t_list, &bcast_list);
+	hlist_for_each_entry_safe(mark, n, &task->pnotify_marks, obj_list) {
+		// list_add(&mark->t.bcast_t_list, &bcast_list);
+    list_add(&mark->free_list, &bcast_list);
 		fsnotify_get_mark(mark); // due to bcast_list copy
 	}
 	task_unlock(task);
 
-	list_for_each_entry_safe(mark, lmark, &bcast_list, t.bcast_t_list) {
+	// list_for_each_entry_safe(mark, lmark, &bcast_list, t.bcast_t_list) {
+	list_for_each_entry_safe(mark, lmark, &bcast_list, obj_list) {
 		pnotify_debug(PNOTIFY_DEBUG_LEVEL_VERBOSE,
-			      "%s: Sending message (%s) to observer/mark: 0x%p"
+			      "%s: Sending event (0x%x) message (%s) to observer/mark: 0x%p"
 			      " (mark->mask:"
 			      " 0x%x) for task->pid: %u\n",
-			      __func__, msg, mark, mark->mask, task->pid);
+			      __func__, event_type, 
+            (char*)(msg ? msg : (const char*)""),
+            mark, mark->mask, task->pid);
 
 		/* Just record the last error, if any, for the return value: */
-		lastret = pnotify_create_annotate_event(task, mark,
-							mark->group, msg);
+		lastret = pnotify_create_process_event(task, mark,
+							mark->group, event_type, msg);
 		if (lastret)
 			ret = lastret;
-		list_del_init(&mark->t.bcast_t_list);
+		list_del_init(&mark->obj_list);
 		fsnotify_put_mark(mark); // due to bcast_list copy
 	}
 
 	BUG_ON(!list_empty(&bcast_list));
 
 	mutex_unlock(&pnotify_annotate_mutex);
-#endif
 	return ret;
 }
 
@@ -1237,7 +1241,7 @@ SYSCALL_DEFINE3(pnotify_annotate, u32, pid, const char __user *, buf, u32, len)
 		      "%s: Preparing: pid: %u, msg: %s\n",
 		      __func__, pid, kernel_buf);
 
-	ret = pnotify_broadcast_annotate(task, kernel_buf);
+	ret = pnotify_broadcast_event(task, PN_ANNOTATE, kernel_buf);
 out:
 	if (task)
 		put_task_struct(task);
