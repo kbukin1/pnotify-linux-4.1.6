@@ -947,7 +947,7 @@ int pnotify_new_watch(struct fsnotify_group *group, u32 pid, u32 arg)
 	}
 
 	/* we are on the idr, now get on the task */
-	ret = fsnotify_add_mark(&tmp_i_mark->fsn_mark, group,
+	ret = fsnotify_add_mark_locked(&tmp_i_mark->fsn_mark, group,
 				NULL, NULL, task, 0);
 	if (ret) {
 		/* we failed to get on the inode, get off the idr */
@@ -978,19 +978,13 @@ static int pnotify_update_watch(struct fsnotify_group *group, u32 pid, u32 arg)
 {
 	int ret = 0;
 
-retry:
+  mutex_lock(&group->mark_mutex);
 	/* try to update and existing watch with the new arg */
 	ret = pnotify_update_existing_watch(group, pid, arg);
 	/* no mark present, try to add a new one */
 	if (ret == -ENOENT)
 		ret = pnotify_new_watch(group, pid, arg);
-	/*
-	 * pnotify_new_watch could race with another thread which did an
-	 * pnotify_new_watch between the update_existing and the add watch
-	 * here, go back and try to update an existing mark again.
-	 */
-	if (ret == -EEXIST)
-		goto retry;
+  mutex_unlock(&group->mark_mutex);
 
 	return ret;
 }
