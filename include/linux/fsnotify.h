@@ -180,6 +180,7 @@ static inline u32 fsnotify_symlink(const char __user *filename)
       fs_cookie = fsnotify_get_cookie();
       fsnotify(link_path.dentry->d_inode, mask, &link_path, FSNOTIFY_EVENT_PATH,
           NULL, fs_cookie, NULL, 0);
+      path_put(&link_path);
     }
   }
 
