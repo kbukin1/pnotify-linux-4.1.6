@@ -169,7 +169,7 @@ static inline u32 fsnotify_symlink(const char __user *filename)
   if (!filename || !has_pnotify_tracking(current))
     return fs_cookie;
 
-  error = vfs_lstat(filename, &stat);
+  error = vfs_fstatat(AT_FDCWD, filename, &stat, AT_SYMLINK_NOFOLLOW | AT_STAT_NONOTIFY );
   if (!error && S_ISLNK(stat.mode)) {
 
     if (S_ISDIR(stat.mode))
@@ -178,8 +178,7 @@ static inline u32 fsnotify_symlink(const char __user *filename)
     error = kern_path(filename, LOOKUP_AUTOMOUNT, &link_path);
     if (!error) {
       fs_cookie = fsnotify_get_cookie();
-      fsnotify(link_path.dentry->d_inode, mask, &link_path, FSNOTIFY_EVENT_PA
-          TH,
+      fsnotify(link_path.dentry->d_inode, mask, &link_path, FSNOTIFY_EVENT_PATH,
           NULL, fs_cookie, NULL, 0);
     }
   }
