@@ -28,7 +28,7 @@
 #include <linux/spinlock.h>
 #include <linux/sched.h>
 
-#include <asm/atomic.h>
+#include <linux/atomic.h>
 
 #include <linux/fsnotify_backend.h>
 #include "fsnotify.h"
@@ -69,6 +69,8 @@ void fsnotify_destroy_task_mark(struct fsnotify_mark *mark)
 {
 	struct task_struct *task = mark->task;
 
+  BUG_ON(!mutex_is_locked(&mark->group->mark_mutex));
+  assert_spin_locked(&mark->lock);
 
 	task_lock(task);
 
