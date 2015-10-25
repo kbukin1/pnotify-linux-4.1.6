@@ -65,7 +65,6 @@ static int pnotify_major_version __read_mostly;
 static int pnotify_minor_version __read_mostly;
 
 struct kmem_cache *pnotify_inode_mark_cachep __read_mostly;
-// struct kmem_cache *pnotify_event_priv_cachep __read_mostly;
 struct kmem_cache *pnotify_wd_pid_cachep __read_mostly;
 
 static struct mutex pnotify_annotate_mutex;
@@ -342,11 +341,12 @@ static int pnotify_release(struct inode *ignored, struct file *file)
 	pnotify_debug(PNOTIFY_DEBUG_LEVEL_VERBOSE,
 		      "%s: group=0x%p\n", __func__, group);
 
-	fsnotify_clear_marks_by_group(group);
+	// fsnotify_clear_marks_by_group(group);
 
 	/* free this group, matching get was
 	   pnotify_init->fsnotify_obtain_group */
-	fsnotify_put_group(group);
+	// fsnotify_put_group(group);
+  fsnotify_destroy_group(group);
 
 	return 0;
 }
@@ -575,6 +575,37 @@ static void pnotify_free_mark(struct fsnotify_mark *fsn_mark)
 	kmem_cache_free(pnotify_inode_mark_cachep, i_mark);
 }
 
+
+int pnotify_create_process_event(struct task_struct *task,
+				 struct fsnotify_mark *fsn_mark,
+				 struct fsnotify_group *group,
+				 u32 event_type,
+				 char *msg)
+{
+  int ret = 0;
+  pnotify_debug(PNOTIFY_DEBUG_LEVEL_VERBOSE,
+      "%s: Entering: group: 0x%p, event_type: %u\n",
+      __func__, group, event_type);
+
+  ret = pnotify_handle_event(group,
+                             NULL,
+                             fsn_mark,
+                             NULL,
+                             event_type,
+                             NULL,
+                             FSNOTIFY_EVENT_NONE,
+                             msg,
+                             0, /* cookie */
+                             task->tgid,
+                             task->pid,
+                             task->parent ? task->parent->pid : 0,
+                             NULL,
+                             PN_PROCESS_EXIT != event_type ? 0 : task->exit_code);
+  return ret;
+}
+
+
+#if 0
 int pnotify_create_process_event(struct task_struct *task,
 				 struct fsnotify_mark *fsn_mark,
 				 struct fsnotify_group *group,
@@ -586,7 +617,6 @@ int pnotify_create_process_event(struct task_struct *task,
 	struct pnotify_event_private_data *event_priv;
 	struct fsnotify_event_private_data *fsn_event_priv;
 	int ret = 0;
-#if 0
 	pnotify_debug(PNOTIFY_DEBUG_LEVEL_VERBOSE,
 		      "%s: Entering: group: 0x%p, event_type: %u\n",
 		      __func__, group, event_type);
@@ -628,9 +658,9 @@ skip_send_ignore:
 
 	/* matches the reference taken when the event was created */
 	fsnotify_put_event(special_event);
-#endif
 	return ret;
 }
+#endif
 
 int pnotify_create_annotate_event(struct task_struct *task,
                                   struct fsnotify_mark *fsn_mark,
