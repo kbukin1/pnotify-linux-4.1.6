@@ -98,50 +98,75 @@ static struct fsnotify_event *pnotify_merge(struct list_head *list,
 }
 
 static int pnotify_handle_event(struct fsnotify_group *group,
-				struct fsnotify_mark *inode_mark,
-				struct fsnotify_mark *vfsmount_mark,
-				struct fsnotify_event *event)
+			                   struct inode *inode,
+                         struct fsnotify_mark *inode_mark,
+                         struct fsnotify_mark *vfsmount_mark,
+                         u32 mask, void *data, int data_type,
+                         const unsigned char *file_name, u32 cookie,
+                         pid_t tgid, pid_t pid, pid_t ppid, 
+                         struct path *path, unsigned long status)
 {
 	struct pnotify_inode_mark *i_mark;
-	struct inode *to_tell;
-	struct pnotify_event_private_data *event_priv;
-	struct fsnotify_event_private_data *fsn_event_priv;
-	struct fsnotify_event *added_event;
-	int wd, ret = 0;
-#if 0
-	pr_debug("%s: group=%p event=%p to_tell=%p mask=%x\n", __func__, group,
-		 event, event->to_tell, event->mask);
+	struct pnotify_event_info *event;
+	struct fsnotify_event *fsn_event;
+	int ret;
+	int len = 0;
+	int alloc_len = sizeof(struct pnotify_event_info);
 
-	to_tell = event->to_tell;
+	BUG_ON(vfsmount_mark);
 
-	/* For now, use the inode_mark. Eventually, pass in a task_mark
-	   argument to this routine. */
+	if ((inode_mark->mask & FS_EXCL_UNLINK) &&
+	    (data_type == FSNOTIFY_EVENT_PATH)) {
+		struct path *path = data;
+
+		if (d_unlinked(path->dentry))
+			return 0;
+	}
+	if (file_name) {
+		len = strlen(file_name);
+		alloc_len += len + 1;
+	}
+
+	pr_debug("%s: group=%p inode=%p mask=%x\n", __func__, 
+      group, inode, mask);
+	pnotify_debug(PNOTIFY_DEBUG_LEVEL_VERBOSE, 
+      "%s: group=%p inode=%p mask=%x path=%p\n", __func__, 
+      group, inode, mask, path);
+
 	i_mark = container_of(inode_mark, struct pnotify_inode_mark,
 			      fsn_mark);
-	wd = i_mark->wd;
 
-	event_priv = kmem_cache_alloc(pnotify_event_priv_cachep, GFP_KERNEL);
-	if (unlikely(!event_priv))
+	event = kmalloc(alloc_len, GFP_KERNEL);
+	if (unlikely(!event))
 		return -ENOMEM;
 
-	fsn_event_priv = &event_priv->fsnotify_event_priv_data;
+	fsn_event = &event->fse;
+	fsnotify_init_event(fsn_event, inode, mask);
+	event->wd = i_mark->wd;
+	event->sync_cookie = cookie;
+	event->name_len = len;
 
-	fsn_event_priv->group = group;
-	event_priv->wd = wd;
+	event->tgid = tgid;
+	event->pid = pid;
+	event->ppid = ppid;
+	event->status = status;
+	event->jiffies = get_jiffies_64();
+	event->inode_num = path ? path->dentry->d_inode->i_ino : 0;
 
-	added_event = fsnotify_add_notify_event(group, event, fsn_event_priv, pnotify_merge);
-	if (added_event) {
-		pnotify_free_event_priv(fsn_event_priv);
-		if (!IS_ERR(added_event))
-			fsnotify_put_event(added_event);
-		else
-			ret = PTR_ERR(added_event);
+	if (len)
+		strcpy(event->name, file_name);
+
+	ret = fsnotify_add_event(group, fsn_event, pnotify_merge);
+	if (ret) {
+		/* Our event wasn't used in the end. Free it. */
+		fsnotify_destroy_event(group, fsn_event);
 	}
 
 	if (inode_mark->mask & IN_ONESHOT)
-		fsnotify_destroy_mark(inode_mark);
-#endif
-	return ret;
+		fsnotify_destroy_mark(inode_mark, group);
+
+	return 0;
+
 }
 
 static void pnotify_freeing_mark(struct fsnotify_mark *fsn_mark, struct fsnotify_group *group)
