@@ -1,4 +1,4 @@
-/*
+*
  * devtmpfs - kernel-maintained tmpfs-based /dev
  *
  * Copyright (C) 2009, Kay Sievers <kay.sievers@vrfy.org>
