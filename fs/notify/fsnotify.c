@@ -123,16 +123,6 @@ int __fsnotify_parent(struct path *path, struct dentry *dentry, __u32 mask,
 }
 EXPORT_SYMBOL_GPL(__fsnotify_parent);
 
-static inline int has_pnotify_tracking(struct task_struct * task)
-{
-#ifdef CONFIG_PNOTIFY_USER
-    return !hlist_empty(&task->pnotify_marks);
-#else
-    return 0;
-#endif
-}
-
-
 static int send_to_group(struct inode *to_tell,
 			 struct fsnotify_mark *inode_mark,
 			 struct fsnotify_mark *vfsmount_mark,

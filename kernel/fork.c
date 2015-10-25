@@ -1035,7 +1035,7 @@ static int copy_fs(unsigned long clone_flags, struct task_struct *tsk)
 	return 0;
 }
 
-static int copy_pnotify(unsigned long clone_flags, struct task_struct * tsk)
+static int copy_pnotify(unsigned long clone_flags /* KB_TODO: unused param? */ , struct task_struct * tsk)
 {
 #ifdef CONFIG_PNOTIFY_USER
   struct fsnotify_mark *mark;
