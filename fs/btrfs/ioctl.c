@@ -865,7 +865,7 @@ static noinline int btrfs_mksubvol(struct path *parent,
 				      async_transid, inherit);
 	}
 	if (!error)
-		fsnotify_mkdir(dir, dentry, 0);
+		fsnotify_mkdir(dir, dentry, NULL);
 out_up_read:
 	up_read(&BTRFS_I(dir)->root->fs_info->subvol_sem);
 out_dput:
