@@ -120,17 +120,20 @@ static int pnotify_fullpath_from_path(struct pnotify_event_info *event,
           event->inode_num,
 		      (char*)(name ? name : (const unsigned char*)"NULL"));
 
-	// if (path_arg && current->fs /* KB_TODO: need to understand this current->fs hack */ ) {
-  if (path_arg) {
+  if (path_arg && current->fs /* KB_TODO: need to understand why current->fs is sometimes zero */ ) {
+    path_get(path_arg);
 		page = (char *) __get_free_page(GFP_KERNEL);
-		if (!page)
+    if (!page) {
+      path_put(path_arg);
 			return -ENOMEM;
+    }
 
 		path_name = d_path(path_arg, page, buflen);
+    path_put(path_arg);
 
 		if (IS_ERR(path_name)) {
 			pnotify_debug(PNOTIFY_DEBUG_LEVEL_DEBUG_EVENTS,
-				      "%s: dpath failed(1): %d (jiffies: 0x%llx, "
+          "%s: dpath failed: %d (jiffies: 0x%llx, "
 				      "pid: %u, event_inode_num: %lu)\n",
 				      __func__, (int)(long)path_name,
 				      event->jiffies, event->pid,
