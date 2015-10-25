@@ -120,7 +120,8 @@ static int pnotify_fullpath_from_path(struct pnotify_event_info *event,
           event->inode_num,
 		      (char*)(name ? name : (const unsigned char*)"NULL"));
 
-	if (path_arg && current->fs /* KB_TODO: need to understand this current->fs hack */ ) {
+	// if (path_arg && current->fs /* KB_TODO: need to understand this current->fs hack */ ) {
+  if (path_arg) {
 		page = (char *) __get_free_page(GFP_KERNEL);
 		if (!page)
 			return -ENOMEM;
