@@ -565,47 +565,16 @@ void pnotify_ignored_and_remove_idr(struct fsnotify_mark *fsn_mark,
 				    struct fsnotify_group *group)
 {
 	struct pnotify_inode_mark *i_mark;
-	struct fsnotify_event *ignored_event, *notify_event;
-	struct pnotify_event_private_data *event_priv;
-	struct fsnotify_event_private_data *fsn_event_priv;
-	int ret;
-#if 0
-	ignored_event = fsnotify_create_event(NULL, FS_IN_IGNORED, NULL,
-					      FSNOTIFY_EVENT_NONE, NULL, 0,
-					      GFP_NOFS, 0, 0, 0, NULL, 0);
-	if (!ignored_event)
-		return;
+
+	/* Queue ignore event for the watch */
+	pnotify_handle_event(group, NULL, fsn_mark, NULL, FS_IN_IGNORED,
+			     NULL, FSNOTIFY_EVENT_NONE, NULL, 0, 0, 0, 0, NULL, 0);
 
 	i_mark = container_of(fsn_mark, struct pnotify_inode_mark, fsn_mark);
-
-	event_priv = kmem_cache_alloc(pnotify_event_priv_cachep, GFP_NOFS);
-	if (unlikely(!event_priv))
-		goto skip_send_ignore;
-
-	fsn_event_priv = &event_priv->fsnotify_event_priv_data;
-
-	fsn_event_priv->group = group;
-	event_priv->wd = i_mark->wd;
-
-	notify_event = fsnotify_add_notify_event(group, ignored_event, fsn_event_priv, NULL);
-	if (notify_event) {
-		if (IS_ERR(notify_event))
-			ret = PTR_ERR(notify_event);
-		else
-			fsnotify_put_event(notify_event);
-		pnotify_free_event_priv(fsn_event_priv);
-	}
-
-skip_send_ignore:
-
-	/* matches the reference taken when the event was created */
-	fsnotify_put_event(ignored_event);
-
 	/* remove this mark from the idr */
 	pnotify_remove_from_idr(group, i_mark);
 
 	atomic_dec(&group->pnotify_data.user->pnotify_watches);
-#endif
 }
 
 /* ding dong the mark is dead */
