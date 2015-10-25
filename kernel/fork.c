@@ -1064,8 +1064,10 @@ static int copy_pnotify(unsigned long clone_flags, struct task_struct * tsk)
         "new task %u)\n",
         __func__, current->pid, tsk->pid);
 
+    mutex_lock(&mark->group->mark_mutex);
     pnotify_new_watch(mark->group, tsk->pid,
         pnotify_mask_to_arg(mark->mask));
+    mutex_unlock(&mark->group->mark_mutex);
     pnotify_create_process_create_event(tsk, mark, mark->group);
   }
 #endif
