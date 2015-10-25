@@ -43,37 +43,20 @@
  * Check if 2 events contain the same information.  We do not compare private data
  * but at this moment that isn't a problem for any know fsnotify listeners.
  */
-static bool pnotify_event_compare(struct fsnotify_event *old, struct fsnotify_event *new)
+static bool pnotify_event_compare(struct fsnotify_event *old_fsn, struct fsnotify_event *new_fsn)
 {
-#if 0
-	if ((old->mask == new->mask) &&
-	    (old->to_tell == new->to_tell) &&
-	    (old->data_type == new->data_type) &&
-	    (old->name_len == new->name_len)) {
-		switch (old->data_type) {
-		case (FSNOTIFY_EVENT_INODE):
-			/* remember, after old was put on the wait_q we aren't
-			 * allowed to look at the inode any more, only thing
-			 * left to check was if the file_name is the same */
-			if (!old->name_len ||
-			    !strcmp(old->file_name, new->file_name))
-				return true;
-			break;
-		case (FSNOTIFY_EVENT_PATH):
-			if ((old->path.mnt == new->path.mnt) &&
-			    (old->path.dentry == new->path.dentry))
-				return true;
-			break;
-		case (FSNOTIFY_EVENT_NONE):
-			if (old->mask & FS_Q_OVERFLOW)
-				return true;
-			else if (old->mask & FS_IN_IGNORED)
-				return false;
-			return true;
-		};
-	}
-#endif
-	return false;
+  struct pnotify_event_info *old, *new;
+
+  if (old_fsn->mask & FS_IN_IGNORED)
+    return false;
+  old = PNOTIFY_E(old_fsn);
+  new = PNOTIFY_E(new_fsn);
+  if ((old_fsn->mask == new_fsn->mask) &&
+      (old_fsn->inode == new_fsn->inode) &&
+      (old->name_len == new->name_len) &&
+      (!old->name_len || !strcmp(old->name, new->name)))
+    return true;
+  return false;
 }
 
 #if 0
