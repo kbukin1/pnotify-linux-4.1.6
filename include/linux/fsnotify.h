@@ -31,7 +31,7 @@ static inline int fsnotify_parent(struct path *path, struct dentry *dentry, __u3
 	if (!dentry)
 		dentry = path->dentry;
 
-	return __fsnotify_parent(path, dentry, mask, 0);
+	return __fsnotify_parent(path, dentry, mask, pnotify_path);
 }
 
 /* simple call site for access decisions */
@@ -53,11 +53,11 @@ static inline int fsnotify_perm(struct file *file, int mask)
 	else
 		BUG();
 
-	ret = fsnotify_parent(path, NULL, fsnotify_mask, 0);
+	ret = fsnotify_parent(path, NULL, fsnotify_mask, path);
 	if (ret)
 		return ret;
 
-	return fsnotify(inode, fsnotify_mask, path, FSNOTIFY_EVENT_PATH, NULL, 0, 0, 0);
+	return fsnotify(inode, fsnotify_mask, path, FSNOTIFY_EVENT_PATH, NULL, 0, path, 0);
 }
 
 /*
@@ -77,7 +77,7 @@ static inline void fsnotify_d_move(struct dentry *dentry)
  */
 static inline void fsnotify_link_count(struct inode *inode, struct path* path)
 {
-	fsnotify(inode, FS_ATTRIB, inode, FSNOTIFY_EVENT_INODE, NULL, 0, 0, 0);
+	fsnotify(inode, FS_ATTRIB, inode, FSNOTIFY_EVENT_INODE, NULL, 0, path, 0);
 }
 
 /*
@@ -103,15 +103,15 @@ static inline void fsnotify_move(struct inode *old_dir, struct inode *new_dir,
 	}
 
 	fsnotify(old_dir, old_dir_mask, source, FSNOTIFY_EVENT_INODE, old_name,
-		 fs_cookie, 0, 0);
+		 fs_cookie, old_path, 0);
 	fsnotify(new_dir, new_dir_mask, source, FSNOTIFY_EVENT_INODE, new_name,
-		 fs_cookie, 0, 0);
+		 fs_cookie, new_path, 0);
 
 	if (target)
-		fsnotify_link_count(target, 0);
+		fsnotify_link_count(target, old_path);
 
 	if (source)
-		fsnotify(source, FS_MOVE_SELF, moved->d_inode, FSNOTIFY_EVENT_INODE, NULL, 0, 0, 0);
+		fsnotify(source, FS_MOVE_SELF, moved->d_inode, FSNOTIFY_EVENT_INODE, NULL, 0, old_path, 0);
 	audit_inode_child(new_dir, moved, AUDIT_TYPE_CHILD_CREATE);
 }
 
@@ -120,7 +120,7 @@ static inline void fsnotify_move(struct inode *old_dir, struct inode *new_dir,
  */
 static inline void fsnotify_inode_delete(struct inode *inode, struct path* path)
 {
-	__fsnotify_inode_delete(inode);
+	__fsnotify_inode_delete(inode); // KB_TODO: use path so we finally get file name?
 }
 
 /*
@@ -141,7 +141,7 @@ static inline void fsnotify_nameremove(struct dentry *dentry, int isdir, struct 
 	if (isdir)
 		mask |= FS_ISDIR;
 
-	fsnotify_parent(NULL, dentry, mask, 0);
+	fsnotify_parent(NULL, dentry, mask, path);
 }
 
 /*
@@ -149,7 +149,7 @@ static inline void fsnotify_nameremove(struct dentry *dentry, int isdir, struct 
  */
 static inline void fsnotify_inoderemove(struct inode *inode, struct path* path)
 {
-	fsnotify(inode, FS_DELETE_SELF, inode, FSNOTIFY_EVENT_INODE, NULL, 0, 0, 0);
+	fsnotify(inode, FS_DELETE_SELF, inode, FSNOTIFY_EVENT_INODE, NULL, 0, path, 0);
 	__fsnotify_inode_delete(inode);
 }
 
@@ -160,7 +160,7 @@ static inline void fsnotify_create(struct inode *inode, struct dentry *dentry, s
 {
 	audit_inode_child(inode, dentry, AUDIT_TYPE_CHILD_CREATE);
 
-	fsnotify(inode, FS_CREATE, dentry->d_inode, FSNOTIFY_EVENT_INODE, dentry->d_name.name, 0, 0, 0);
+	fsnotify(inode, FS_CREATE, dentry->d_inode, FSNOTIFY_EVENT_INODE, dentry->d_name.name, 0, path, 0);
 }
 
 /*
@@ -171,10 +171,10 @@ static inline void fsnotify_create(struct inode *inode, struct dentry *dentry, s
 static inline void fsnotify_link(struct inode *dir, struct inode *inode, struct dentry *new_dentry,
         struct path* path)
 {
-	fsnotify_link_count(inode, 0);
+	fsnotify_link_count(inode, path);
 	audit_inode_child(dir, new_dentry, AUDIT_TYPE_CHILD_CREATE);
 
-	fsnotify(dir, FS_CREATE, inode, FSNOTIFY_EVENT_INODE, new_dentry->d_name.name, 0, 0, 0);
+	fsnotify(dir, FS_CREATE, inode, FSNOTIFY_EVENT_INODE, new_dentry->d_name.name, 0, path, 0);
 }
 
 /*
@@ -187,7 +187,7 @@ static inline void fsnotify_mkdir(struct inode *inode, struct dentry *dentry, st
 
 	audit_inode_child(inode, dentry, AUDIT_TYPE_CHILD_CREATE);
 
-	fsnotify(inode, mask, d_inode, FSNOTIFY_EVENT_INODE, dentry->d_name.name, 0, 0, 0);
+	fsnotify(inode, mask, d_inode, FSNOTIFY_EVENT_INODE, dentry->d_name.name, 0, path, 0);
 }
 
 /*
@@ -203,8 +203,8 @@ static inline void fsnotify_access(struct file *file, ssize_t count)
 		mask |= FS_ISDIR;
 
 	if (!(file->f_mode & FMODE_NONOTIFY)) {
-		fsnotify_parent(path, NULL, mask, 0);
-		fsnotify(inode, mask, path, FSNOTIFY_EVENT_PATH, NULL, 0, 0, 0);
+		fsnotify_parent(path, NULL, mask, NULL);
+		fsnotify(inode, mask, path, FSNOTIFY_EVENT_PATH, NULL, 0, NULL, count);
 	}
 }
 
@@ -221,8 +221,8 @@ static inline void fsnotify_modify(struct file *file, ssize_t count)
 		mask |= FS_ISDIR;
 
 	if (!(file->f_mode & FMODE_NONOTIFY)) {
-		fsnotify_parent(path, NULL, mask, 0);
-		fsnotify(inode, mask, path, FSNOTIFY_EVENT_PATH, NULL, 0, 0, 0);
+		fsnotify_parent(path, NULL, mask, NULL);
+		fsnotify(inode, mask, path, FSNOTIFY_EVENT_PATH, NULL, 0, NULL, 0);
 	}
 }
 
@@ -238,8 +238,8 @@ static inline void fsnotify_open(struct file *file)
 	if (S_ISDIR(inode->i_mode))
 		mask |= FS_ISDIR;
 
-	fsnotify_parent(path, NULL, mask, 0);
-	fsnotify(inode, mask, path, FSNOTIFY_EVENT_PATH, NULL, 0, 0, 0);
+	fsnotify_parent(path, NULL, mask, NULL);
+	fsnotify(inode, mask, path, FSNOTIFY_EVENT_PATH, NULL, 0, NULL, 0);
 }
 
 /*
@@ -272,8 +272,8 @@ static inline void fsnotify_xattr(struct dentry *dentry, struct path* path)
 	if (S_ISDIR(inode->i_mode))
 		mask |= FS_ISDIR;
 
-	fsnotify_parent(NULL, dentry, mask, 0);
-	fsnotify(inode, mask, inode, FSNOTIFY_EVENT_INODE, NULL, 0, 0, 0);
+	fsnotify_parent(NULL, dentry, mask, path);
+	fsnotify(inode, mask, inode, FSNOTIFY_EVENT_INODE, NULL, 0, path, 0);
 }
 
 /*
@@ -307,8 +307,8 @@ static inline void fsnotify_change(struct dentry *dentry, unsigned int ia_valid,
 		if (S_ISDIR(inode->i_mode))
 			mask |= FS_ISDIR;
 
-		fsnotify_parent(NULL, dentry, mask, 0);
-		fsnotify(inode, mask, inode, FSNOTIFY_EVENT_INODE, NULL, 0, 0, 0);
+		fsnotify_parent(NULL, dentry, mask, path);
+		fsnotify(inode, mask, inode, FSNOTIFY_EVENT_INODE, NULL, 0, path, 0);
 	}
 }
 
