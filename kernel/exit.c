@@ -663,6 +663,9 @@ static void delayed_pnotify_cleanup_on_exit(struct callback_head *twork)
 }
 static inline void pnotify_cleanup_on_exit(struct task_struct *task)
 {
+  if (!has_pnotify_tracking(task))
+    return;
+
   init_task_work(&task->pnotify_cleanup, delayed_pnotify_cleanup_on_exit);
 
   if (task_work_add(task, &task->pnotify_cleanup, true)) {
