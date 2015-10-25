@@ -942,7 +942,7 @@ static int unix_mknod(struct dentry *dentry, struct path *path, umode_t mode,
 
 	err = security_path_mknod(path, dentry, mode, 0);
 	if (!err) {
-		err = vfs_mknod(d_inode(path->dentry), dentry, mode, 0, 0);
+		err = vfs_mknod(d_inode(path->dentry), dentry, mode, 0, &path);
 		if (!err) {
 			res->mnt = mntget(path->mnt);
 			res->dentry = dget(dentry);
