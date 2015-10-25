@@ -3797,6 +3797,7 @@ static long do_unlinkat(int dfd, const char __user *pathname)
 	struct inode *inode = NULL;
 	struct inode *delegated_inode = NULL;
 	unsigned int lookup_flags = 0;
+  struct path npath;
 retry:
 	name = user_path_parent(dfd, pathname, &nd, lookup_flags);
 	if (IS_ERR(name))
@@ -3825,7 +3826,9 @@ retry_deleg:
 		error = security_path_unlink(&nd.path, dentry);
 		if (error)
 			goto exit2;
-		error = vfs_unlink(nd.path.dentry->d_inode, dentry, &delegated_inode, &nd.path);
+    npath.mnt = nd.path.mnt;
+    npath.dentry = dentry;
+		error = vfs_unlink(nd.path.dentry->d_inode, dentry, &delegated_inode, &npath);
 exit2:
 		dput(dentry);
 	}
