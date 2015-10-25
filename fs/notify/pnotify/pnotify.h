@@ -39,6 +39,13 @@ struct pnotify_wd_pid_struct {
 
 extern void pnotify_ignored_and_remove_idr(struct fsnotify_mark *fsn_mark,
 					   struct fsnotify_group *group);
-// extern void pnotify_free_event_priv(struct fsnotify_event_private_data *event_priv);
+extern int pnotify_handle_event(struct fsnotify_group *group,
+    struct inode *inode,
+    struct fsnotify_mark *inode_mark,
+    struct fsnotify_mark *vfsmount_mark,
+    u32 mask, void *data, int data_type,
+    const unsigned char *file_name, u32 cookie,
+    pid_t tgid, pid_t pid, pid_t ppid,
+    struct path *path, unsigned long status);
 
 extern const struct fsnotify_ops pnotify_fsnotify_ops;
