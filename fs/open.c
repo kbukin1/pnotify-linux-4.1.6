@@ -1021,7 +1021,7 @@ long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
 			put_unused_fd(fd);
 			fd = PTR_ERR(f);
 		} else {
-			fsnotify_open(f);
+			fsnotify_open(f, filename);
 			fd_install(fd, f);
 		}
 	}

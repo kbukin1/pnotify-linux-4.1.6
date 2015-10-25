@@ -142,7 +142,7 @@ SYSCALL_DEFINE1(uselib, const char __user *, library)
 	if (path_noexec(&file->f_path))
 		goto exit;
 
-	fsnotify_open(file);
+	fsnotify_open(file, library);
 
 	error = -ENOEXEC;
 
@@ -792,7 +792,7 @@ static struct file *do_open_execat(int fd, struct filename *name, int flags)
 		goto exit;
 
 	if (name->name[0] != '\0')
-		fsnotify_open(file);
+		fsnotify_open(file, name->uptr);
 
 out:
 	return file;
