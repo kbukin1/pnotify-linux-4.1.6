@@ -257,12 +257,25 @@ struct fsnotify_mark {
 
 #ifdef CONFIG_PNOTIFY_USER
 extern int pnotify_debug_print_level __read_mostly;
+
 #define pnotify_debug(level,fmt, ...) \
     if(pnotify_debug_print_level >= level) \
 printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__)
-#else
+
+#include "linux/sched.h"
+
+static inline int has_pnotify_tracking(struct task_struct * task)
+{
+  return !hlist_empty(&task->pnotify_marks);
+}
+
+#else /* CONFIG_PNOTIFY_USER */
 #define pnotify_debug(level,fmt, ...)
-#endif
+static inline int has_pnotify_tracking(struct task_struct * task)
+{
+  return 0;
+}
+#endif /* CONFIG_PNOTIFY_USER */
 
 /* called from the vfs helpers */
 
