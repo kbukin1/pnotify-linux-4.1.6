@@ -286,7 +286,7 @@ static int cachefiles_bury_object(struct cachefiles_cache *cache,
 		if (ret < 0) {
 			cachefiles_io_error(cache, "Unlink security error");
 		} else {
-			ret = vfs_unlink(d_inode(dir), rep, NULL, 0);
+			ret = vfs_unlink(d_inode(dir), rep, NULL, &path);
 
 			if (preemptive)
 				cachefiles_mark_object_buried(cache, rep);
