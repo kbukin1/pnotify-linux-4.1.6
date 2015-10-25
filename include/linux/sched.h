@@ -1416,6 +1416,7 @@ struct task_struct {
 #ifdef CONFIG_PNOTIFY_USER
      u32 pnotify_mask; /* all events this task cares about */
      struct hlist_head pnotify_marks;
+     struct rcu_head  pnotify_cleanup; /* pnotify related cleanup */
 #endif
 
 #ifdef CONFIG_BLK_DEV_IO_TRACE
