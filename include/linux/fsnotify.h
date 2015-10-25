@@ -15,6 +15,8 @@
 #include <linux/audit.h>
 #include <linux/slab.h>
 #include <linux/bug.h>
+#include <linux/pnotify.h>
+#include <linux/namei.h>
 
 /*
  * fsnotify_d_instantiate - instantiate a dentry for inode
@@ -154,6 +156,38 @@ static inline void fsnotify_inoderemove(struct inode *inode, struct path* path)
 }
 
 /*
+  * an event is sent if filename is a symlink
+  */
+static inline u32 fsnotify_symlink(const char __user *filename)
+{
+  struct kstat stat;
+  int error;
+  struct path link_path;
+  u32 fs_cookie = 0;
+  __u32 mask = PN_SYMLINK;
+
+  if (!filename || !has_pnotify_tracking(current))
+    return fs_cookie;
+
+  error = vfs_lstat(filename, &stat);
+  if (!error && S_ISLNK(stat.mode)) {
+
+    if (S_ISDIR(stat.mode))
+      mask = FS_ISDIR;
+
+    error = kern_path(filename, LOOKUP_AUTOMOUNT, &link_path);
+    if (!error) {
+      fs_cookie = fsnotify_get_cookie();
+      fsnotify(link_path.dentry->d_inode, mask, &link_path, FSNOTIFY_EVENT_PA
+          TH,
+          NULL, fs_cookie, NULL, 0);
+    }
+  }
+
+  return fs_cookie;
+}
+
+/*
  * fsnotify_create - 'name' was linked in
  */
 static inline void fsnotify_create(struct inode *inode, struct dentry *dentry, struct path *path)
@@ -229,17 +263,18 @@ static inline void fsnotify_modify(struct file *file, ssize_t count)
 /*
  * fsnotify_open - file was opened
  */
-static inline void fsnotify_open(struct file *file)
+static inline void fsnotify_open(struct file *file, const char __user *filename)
 {
 	struct path *path = &file->f_path;
 	struct inode *inode = file_inode(file);
 	__u32 mask = FS_OPEN;
+  u32 fs_cookie = fsnotify_symlink(filename);
 
 	if (S_ISDIR(inode->i_mode))
 		mask |= FS_ISDIR;
 
 	fsnotify_parent(path, NULL, mask, NULL);
-	fsnotify(inode, mask, path, FSNOTIFY_EVENT_PATH, NULL, 0, NULL, 0);
+	fsnotify(inode, mask, path, FSNOTIFY_EVENT_PATH, NULL, fs_cookie, NULL, 0);
 }
 
 /*
