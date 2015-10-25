@@ -125,7 +125,11 @@ EXPORT_SYMBOL_GPL(__fsnotify_parent);
 
 static inline int has_pnotify_tracking(struct task_struct * task)
 {
+#ifdef CONFIG_PNOTIFY_USER
     return !hlist_empty(&task->pnotify_marks);
+#else
+    return 0;
+#endif
 }
 
 
