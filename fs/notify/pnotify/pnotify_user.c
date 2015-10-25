@@ -191,9 +191,8 @@ static int round_event_name_len(struct fsnotify_event *fsn_event)
  *
  * Called with the group->notification_mutex held.
  */
-static
-struct fsnotify_event *get_one_event(struct fsnotify_group *group,
-					     size_t count)
+static struct fsnotify_event *pnotify_get_one_event(struct fsnotify_group *group,
+					    size_t count)
 {
 	size_t event_size = sizeof(struct pnotify_event);
 	struct fsnotify_event *event;
@@ -281,9 +280,8 @@ static ssize_t pnotify_copy_event_to_user(struct fsnotify_group *group,
 }
 
 static ssize_t pnotify_read(struct file *file, char __user *buf,
-			    size_t count, loff_t *pos)
+			                      size_t count, loff_t *pos)
 {
-#if 0
 	struct fsnotify_group *group;
 	struct fsnotify_event *kevent;
 	char __user *start;
@@ -308,7 +306,7 @@ static ssize_t pnotify_read(struct file *file, char __user *buf,
 			if (IS_ERR(kevent))
 				break;
 			ret = pnotify_copy_event_to_user(group, kevent, buf);
-			fsnotify_put_event(kevent);
+			fsnotify_destroy_event(group, kevent);
 			if (ret < 0)
 				break;
 			buf += ret;
@@ -319,7 +317,7 @@ static ssize_t pnotify_read(struct file *file, char __user *buf,
 		ret = -EAGAIN;
 		if (file->f_flags & O_NONBLOCK)
 			break;
-		ret = -EINTR;
+		ret = -ERESTARTSYS;
 		if (signal_pending(current))
 			break;
 
@@ -333,16 +331,6 @@ static ssize_t pnotify_read(struct file *file, char __user *buf,
 	if (start != buf && ret != -EFAULT)
 		ret = buf - start;
 	return ret;
-#endif
-  return 0;
-}
-
-static int pnotify_fasync(int fd, struct file *file, int on)
-{
-	struct fsnotify_group *group = file->private_data;
-
-	return fasync_helper(fd, file, on,
-			     &group->pnotify_data.fa) >= 0 ? 0 : -EIO;
 }
 
 static int pnotify_release(struct inode *ignored, struct file *file)
@@ -979,30 +967,30 @@ retry:
 
 static struct fsnotify_group *pnotify_new_group(unsigned int max_events)
 {
-	struct fsnotify_group *group;
+  struct fsnotify_group *group;
 
-	group = fsnotify_alloc_group(&pnotify_fsnotify_ops);
-	if (IS_ERR(group))
-		return group;
+  group = fsnotify_alloc_group(&pnotify_fsnotify_ops);
+  if (IS_ERR(group))
+    return group;
 
-	group->max_events = max_events;
+  group->max_events = max_events;
 
-	spin_lock_init(&group->pnotify_data.idr_lock);
-	idr_init(&group->pnotify_data.idr);
-	group->pnotify_data.last_wd = 0;
-	group->pnotify_data.fa = NULL;
-	group->pnotify_data.user = get_current_user();
+  spin_lock_init(&group->pnotify_data.idr_lock);
+  idr_init(&group->pnotify_data.idr);
+  group->pnotify_data.last_wd = 0;
+  group->pnotify_data.fa = NULL;
+  group->pnotify_data.user = get_current_user();
 
-	spin_lock_init(&group->pnotify_data.wd_pid_lock);
-	INIT_LIST_HEAD(&group->pnotify_data.wd_pid_list);
+  spin_lock_init(&group->pnotify_data.wd_pid_lock);
+  INIT_LIST_HEAD(&group->pnotify_data.wd_pid_list);
 
-	if (atomic_inc_return(&group->pnotify_data.user->pnotify_devs) >
-	    pnotify_max_user_instances) {
-		fsnotify_put_group(group);
-		return ERR_PTR(-EMFILE);
-	}
+  if (atomic_inc_return(&group->pnotify_data.user->pnotify_devs) >
+      pnotify_max_user_instances) {
+    fsnotify_put_group(group);
+    return ERR_PTR(-EMFILE);
+  }
 
-	return group;
+  return group;
 }
 
 /* For the user's convenience, the pnotify system API allows the calling code
@@ -1079,6 +1067,7 @@ fput_and_out:
 	return ret;
 }
 
+#if 0
 SYSCALL_DEFINE2(pnotify_rm_watch, int, events_fd, u32, pid)
 {
 	struct fsnotify_group *group;
@@ -1088,7 +1077,7 @@ SYSCALL_DEFINE2(pnotify_rm_watch, int, events_fd, u32, pid)
 	int wd;
 
   return -EBADF;
-#if 0
+
 	ret = pnotify_perm_check(pid);
 	if (ret)
 		return ret;
@@ -1128,7 +1117,53 @@ SYSCALL_DEFINE2(pnotify_rm_watch, int, events_fd, u32, pid)
 
 out:
 	fput_light(filp, fput_needed);
+	return ret;
+}
 #endif
+
+SYSCALL_DEFINE2(pnotify_rm_watch, int, events_fd, u32, pid)
+{
+	struct fsnotify_group *group;
+	struct pnotify_inode_mark *i_mark;
+	struct fd f;
+	int ret = 0;
+  int wd;
+
+  ret = pnotify_perm_check(pid); 
+  if (ret) 
+    return ret; 
+
+	f = fdget(events_fd);
+	if (unlikely(!f.file))
+		return -EBADF;
+
+	/* verify that this is indeed an pnotify instance */
+	ret = -EINVAL;
+	if (unlikely(f.file->f_op != &pnotify_fops))
+		goto out;
+
+	group = f.file->private_data;
+
+	ret = -EINVAL;
+
+  wd = pnotify_get_wd(group, pid);
+	i_mark = pnotify_idr_find(group, wd);
+	if (unlikely(!i_mark))
+		goto out;
+
+	ret = 0;
+
+  pnotify_debug(PNOTIFY_DEBUG_LEVEL_VERBOSE,
+      "%s: Preparing: events_fd: %d, pid: %u (wd: %d)\n",
+      __func__, events_fd, pid, wd);
+
+	fsnotify_destroy_mark(&i_mark->fsn_mark, group);
+
+	/* match ref taken by inotify_idr_find */
+	fsnotify_put_mark(&i_mark->fsn_mark);
+
+out:
+	fdput(f);
 	return ret;
 }
 
