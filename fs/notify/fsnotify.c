@@ -211,9 +211,9 @@ static int send_to_group(struct inode *to_tell,
 		return 0;
 
 	return group->ops->handle_event(group, to_tell, inode_mark,
-					vfsmount_mark, mask, data, data_is,
-					file_name, cookie, 
-                    tgid, pid, ppid, path, status);
+                        					vfsmount_mark, mask, data, data_is,
+                                  file_name, cookie, 
+                                  tgid, pid, ppid, path, status);
 }
 
 /*
@@ -317,7 +317,7 @@ int fsnotify(struct inode *to_tell, __u32 mask, void *data, int data_is,
 		}
 		ret = send_to_group(to_tell, inode_mark, vfsmount_mark, NULL,
                             mask, data, data_is, cookie, file_name,
-                            0, 0, 0, NULL, 0);
+                            0, 0, 0, pnotify_path, status);
 
 		if (ret && (mask & ALL_FSNOTIFY_PERM_EVENTS))
 			goto out;
@@ -344,8 +344,8 @@ int fsnotify(struct inode *to_tell, __u32 mask, void *data, int data_is,
 
         pnotify_debug(PNOTIFY_DEBUG_LEVEL_VERBOSE,
                 "%s: pnotify event (mask: 0x%0x) "
-                "for task %u\n",
-                __func__, mask, pid);
+                "for task %u, pnotify_path %p\n",
+                __func__, mask, pid, pnotify_path);
 
         task_group = NULL;
         task_mark = hlist_entry(srcu_dereference(task_node,
