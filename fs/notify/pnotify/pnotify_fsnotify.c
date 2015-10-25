@@ -133,7 +133,7 @@ static int pnotify_fullpath_from_path(struct pnotify_event_info *event,
 	pnotify_debug(PNOTIFY_DEBUG_LEVEL_DEBUG_EVENTS,
 		      "%s: event jiffies: 0x%0llx, path: 0x%p (denty: %p),"
 		      "(event->inode_num: %lu), name: %s\n",
-		      __func__, event->jiffies, path_arg, path_arg->dentry,
+		      __func__, event->jiffies, path_arg, path_arg ? path_arg->dentry : NULL,
           event->inode_num,
 		      (char*)(name ? name : (const unsigned char*)"NULL"));
 
