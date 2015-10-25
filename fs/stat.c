@@ -14,6 +14,9 @@
 #include <linux/security.h>
 #include <linux/syscalls.h>
 #include <linux/pagemap.h>
+#include <linux/pnotify.h>
+#include <linux/fsnotify_backend.h>
+
 
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
@@ -74,6 +77,23 @@ int vfs_getattr(struct path *path, struct kstat *stat)
 
 EXPORT_SYMBOL(vfs_getattr);
 
+#ifdef CONFIG_PNOTIFY_USER
+static inline void pnotify_stat(struct path* path)
+{
+  struct inode *inode = path->dentry->d_inode;
+  __u32 mask = PN_STAT;
+
+  if (S_ISDIR(inode->i_mode))
+    mask = FS_ISDIR;
+
+  fsnotify(inode, mask, path, FSNOTIFY_EVENT_PATH, NULL, 0, NULL, 0
+      );
+}
+#else
+static inline void pnotify_stat(struct path*) {}
+#endif
+
+
 int vfs_fstat(unsigned int fd, struct kstat *stat)
 {
 	struct fd f = fdget_raw(fd);
@@ -81,6 +101,8 @@ int vfs_fstat(unsigned int fd, struct kstat *stat)
 
 	if (f.file) {
 		error = vfs_getattr(&f.file->f_path, stat);
+    if (!error)
+      pnotify_stat(&f.file->f_path);
 		fdput(f);
 	}
 	return error;
@@ -109,6 +131,10 @@ retry:
 
 	error = vfs_getattr(&path, stat);
 	path_put(&path);
+#ifdef CONFIG_PNOTIFY_USER
+  if (!error)
+    pnotify_stat(&path);
+#endif
 	if (retry_estale(error, lookup_flags)) {
 		lookup_flags |= LOOKUP_REVAL;
 		goto retry;
