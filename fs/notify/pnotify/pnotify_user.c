@@ -708,7 +708,10 @@ int pnotify_broadcast_event(struct task_struct *task, u32 event_type, const char
 	int ret = -ENOENT;
 	int lastret = 0;
 
-  // KB_TODO: can we return right away is task is not tracked?
+  // KB_TODO(*): can we return right away is task is not tracked?
+  if (!has_pnotify_tracking(task))
+    return ret;
+
 	LIST_HEAD(bcast_list);
 
 	mutex_lock(&pnotify_annotate_mutex);
