@@ -412,6 +412,9 @@ int pnotify_create_annotate_event(struct task_struct *task,
         struct fsnotify_mark *fsn_mark,
         struct fsnotify_group *group, char *msg);
 
+void fsnotify_clear_marks_by_task(struct task_struct *task);
+
+void fsnotify_destroy_task_mark(struct fsnotify_mark *mark);
 
 /* put here because inotify does some weird stuff when destroying watches */
 extern void fsnotify_init_event(struct fsnotify_event *event,

@@ -53,6 +53,7 @@
 #include <linux/oom.h>
 #include <linux/writeback.h>
 #include <linux/shm.h>
+#include <linux/fsnotify_backend.h>
 
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
@@ -650,6 +651,16 @@ static void check_stack_usage(void)
 static inline void check_stack_usage(void) {}
 #endif
 
+#ifdef CONFIG_PNOTIFY_USER
+static inline void pnotify_cleanup_on_exit(struct task_struct *task)
+{
+  fsnotify_clear_marks_by_task(task);
+  task->pnotify_mask = 0;
+}
+#else
+static inline void pnotify_cleanup_on_exit(struct task_struct *task) {}
+#endif
+
 void do_exit(long code)
 {
 	struct task_struct *tsk = current;
@@ -739,6 +750,7 @@ void do_exit(long code)
 	exit_sem(tsk);
 	exit_shm(tsk);
 	exit_files(tsk);
+  pnotify_cleanup_on_exit(tsk);
 	exit_fs(tsk);
 	if (group_dead)
 		disassociate_ctty(1);

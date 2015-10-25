@@ -96,60 +96,54 @@ void fsnotify_destroy_task_mark(struct fsnotify_mark *mark)
  */
 void fsnotify_clear_marks_by_task(struct task_struct *task)
 {
+  // XXX-4.1.6
 #if 0
-	struct fsnotify_mark *mark, *lmark;
-	struct hlist_node *pos, *n;
-	LIST_HEAD(free_list);
+#ifdef CONFIG_PNOTIFY_USER
+  struct fsnotify_mark *mark, *lmark;
+  struct hlist_node *n;
+  LIST_HEAD(free_list);
 
-	task_lock(task);
-	hlist_for_each_entry_safe(mark, n, &task->pnotify_marks,
-				  t.t_list) {
-		list_add(&mark->t.free_t_list, &free_list);
-		hlist_del_init_rcu(&mark->t.t_list);
-		fsnotify_get_mark(mark);
-	}
-	task_unlock(task);
+  task_lock(task);
+  hlist_for_each_entry_safe(mark, n, &task->pnotify_marks,
+      t.t_list) {
+    list_add(&mark->t.free_t_list, &free_list);
+    hlist_del_init_rcu(&mark->t.t_list);
+    fsnotify_get_mark(mark);
+  }
+  task_unlock(task);
 
-	list_for_each_entry_safe(mark, lmark, &free_list, t.free_t_list) {
-		pnotify_debug(PNOTIFY_DEBUG_LEVEL_VERBOSE,
-			      "%s: removing mark (sending EXIT event first) "
-			      "0x%p (mark->mask: 0x%x) for task pid: %u\n",
-			      __func__, mark, mark->mask, task->pid);
-		pnotify_create_process_exit_event(task, mark, mark->group);
+  list_for_each_entry_safe(mark, lmark, &free_list, t.free_t_list) {
+    struct fsnotify_group *group;
+    pnotify_debug(PNOTIFY_DEBUG_LEVEL_VERBOSE,
+        "%s: removing mark (sending EXIT event first) "
+        "0x%p (mark->mask: 0x%x) for task pid: %u\n",
+        __func__, mark, mark->mask, task->pid);
 
-    // KB_TODO: need properly destroy
-		// fsnotify_destroy_mark(mark);
-		fsnotify_put_mark(mark);
-	}
+    pnotify_create_process_exit_event(task, mark, mark->group);
+
+    spin_lock(&mark->lock);
+    fsnotify_get_group(mark->group);
+    group = mark->group;
+    spin_unlock(&mark->lock);
+
+    fsnotify_destroy_mark(mark, group);
+    fsnotify_put_mark(mark);
+    fsnotify_put_group(group);
+  }
+#endif
 #endif
 	struct fsnotify_mark *mark;
 	struct hlist_node *n;
 	LIST_HEAD(free_list);
 
-	spin_lock(&task->alloc_lock);
-
+	task_lock(task);
 	hlist_for_each_entry_safe(mark, n, &task->pnotify_marks, obj_list) {
-		list_add(&mark->free_list, &free_list);
-		hlist_del_init_rcu(&mark->obj_list);
-		fsnotify_get_mark(mark);
+    list_add(&mark->free_list, &free_list);
+    //hlist_del_init_rcu(&mark->t.t_list);
+    hlist_del_init_rcu(&mark->obj_list);
+    fsnotify_get_mark(mark);
 	}
-
-	spin_unlock(&task->alloc_lock);
-
-    // XXX-4.1.6
-#if 0
-	list_for_each_entry_safe(mark, lmark, &free_list, t.free_t_list) {
-		pnotify_debug(PNOTIFY_DEBUG_LEVEL_VERBOSE,
-			      "%s: removing mark (sending EXIT event first) "
-			      "0x%p (mark->mask: 0x%x) for task pid: %u\n",
-			      __func__, mark, mark->mask, task->pid);
-		pnotify_create_process_exit_event(task, mark, mark->group);
-
-    // KB_TODO: need properly destroy
-		// fsnotify_destroy_mark(mark);
-		fsnotify_put_mark(mark);
-	}
-#endif
+	task_unlock(task);
 
 	fsnotify_destroy_marks(&free_list);
 }
