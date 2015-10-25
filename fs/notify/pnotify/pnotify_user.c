@@ -584,7 +584,7 @@ int pnotify_create_process_event(struct task_struct *task,
 {
   int ret = 0;
   pnotify_debug(PNOTIFY_DEBUG_LEVEL_VERBOSE,
-      "%s: Entering: group: 0x%p, event_type: %u\n",
+      "%s: Entering: group: 0x%p, event_type: %x\n",
       __func__, group, event_type);
 
   ret = pnotify_handle_event(group,
