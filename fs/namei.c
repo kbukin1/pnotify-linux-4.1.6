@@ -4398,7 +4398,7 @@ retry_deleg:
 		goto exit5;
 	error = vfs_rename(old_dir->d_inode, old_dentry,
 			   new_dir->d_inode, new_dentry,
-			   &delegated_inode, flags,0);
+			   &delegated_inode, flags,0);  // KB_TODO last arg 0 seems wrong
 exit5:
 	dput(new_dentry);
 exit4:
