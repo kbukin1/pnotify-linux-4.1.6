@@ -750,7 +750,7 @@ int pnotify_broadcast_event(struct task_struct *task, u32 event_type, const char
 }
 
 static int pnotify_update_existing_watch(struct fsnotify_group *group,
-					 u32 pid,
+					 struct task_struct *task,
 					 u32 arg)
 {
 	struct fsnotify_mark *fsn_mark;
@@ -759,26 +759,22 @@ static int pnotify_update_existing_watch(struct fsnotify_group *group,
 	__u32 mask;
 	int add = (arg & IN_MASK_ADD);
 	int ret;
-	struct task_struct *task;
 
 	/* don't allow invalid bits: we don't want flags set */
 	mask = pnotify_arg_to_mask(arg);
 	if (unlikely(!(mask & PN_ALL_EVENTS)))
 		return -EINVAL;
 
-	rcu_read_lock();
-	task = find_task_by_pid_ns(pid, &init_pid_ns);
-	if (task)
-		get_task_struct(task);
-	rcu_read_unlock();
-
-	if (!task) {
+	if (task) {
 		pnotify_debug(PNOTIFY_DEBUG_LEVEL_MINIMAL,
-			      "%s: FAILED to add watch on pid %u\n",
-			      __func__, pid);
-		ret = -ESRCH;
-		goto failed_out;
-	}
+			      "%s: watch for pid %d\n",
+			       __func__, task->pid);
+    get_task_struct(task);
+	} else {
+    pnotify_debug(PNOTIFY_DEBUG_LEVEL_MINIMAL,
+        "%s: FAILED to add watch on NULL task\n",
+        __func__);
+  }
 
 	fsn_mark = fsnotify_find_task_mark(group, task);
 	if (!fsn_mark) {
@@ -872,7 +868,7 @@ static int add_wd_pid_pair(struct fsnotify_group *group, int wd, u32 pid)
 	return 0;
 }
 
-int pnotify_perm_check(u32 pid)
+static int pnotify_perm_check(u32 pid)
 {
 	int ret = 0;
 	struct task_struct *task;
@@ -908,14 +904,13 @@ out_err:
 	return ret;
 }
 
-int pnotify_new_watch(struct fsnotify_group *group, u32 pid, u32 arg)
+int pnotify_new_watch(struct fsnotify_group *group, struct task_struct * task, u32 arg)
 {
 	struct pnotify_inode_mark *tmp_i_mark;
 	__u32 mask;
 	int ret;
 	struct idr *idr = &group->pnotify_data.idr;
 	spinlock_t *idr_lock = &group->pnotify_data.idr_lock;
-	struct task_struct *task = NULL;
 
 	/* don't allow invalid bits: we don't want flags set */
 	mask = pnotify_arg_to_mask(arg);
@@ -931,27 +926,27 @@ int pnotify_new_watch(struct fsnotify_group *group, u32 pid, u32 arg)
 	tmp_i_mark->wd = -1;
 
 	ret = -ENOSPC;
-	if (atomic_read(&group->pnotify_data.user->pnotify_watches) >=
+
+  if (!task) {
+    pnotify_debug(PNOTIFY_DEBUG_LEVEL_MINIMAL,
+        "%s: FAILED to add watch on NULL task\n",
+        __func__);
+    ret = -ESRCH;
+    goto out_err;
+  } {
+    get_task_struct(task);
+    pnotify_debug(PNOTIFY_DEBUG_LEVEL_MINIMAL,
+        "%s: add watch on pid %u, task=%p\n",
+        __func__, task->pid, task);
+  }
+
+  if (atomic_read(&group->pnotify_data.user->pnotify_watches) >=
 			pnotify_max_user_watches)
 		goto out_err;
 
 	ret = pnotify_add_to_idr(idr, idr_lock, tmp_i_mark);
 	if (ret)
 		goto out_err;
-
-	rcu_read_lock();
-	task = find_task_by_pid_ns(pid, &init_pid_ns);
-	if (task)
-		get_task_struct(task);
-	rcu_read_unlock();
-
-	if (!task) {
-		pnotify_debug(PNOTIFY_DEBUG_LEVEL_MINIMAL,
-			      "%s: FAILED to add watch on pid %u\n",
-			      __func__, pid);
-		ret = -ESRCH;
-		goto out_err;
-	}
 
 	/* we are on the idr, now get on the task */
 	ret = fsnotify_add_mark_locked(&tmp_i_mark->fsn_mark, group,
@@ -965,7 +960,7 @@ int pnotify_new_watch(struct fsnotify_group *group, u32 pid, u32 arg)
 	/* increment the number of watches the user has */
 	atomic_inc(&group->pnotify_data.user->pnotify_watches);
 
-	ret = add_wd_pid_pair(group, tmp_i_mark->wd, pid);
+	ret = add_wd_pid_pair(group, tmp_i_mark->wd, task->pid); //  KB_TODO: wrong pid?
 	if (ret)
 		goto out_err;
 
@@ -981,16 +976,16 @@ out_err:
 	return ret;
 }
 
-static int pnotify_update_watch(struct fsnotify_group *group, u32 pid, u32 arg)
+static int pnotify_update_watch(struct fsnotify_group *group, struct task_struct *task, u32 arg)
 {
 	int ret = 0;
 
   mutex_lock(&group->mark_mutex);
 	/* try to update and existing watch with the new arg */
-	ret = pnotify_update_existing_watch(group, pid, arg);
+	ret = pnotify_update_existing_watch(group, task, arg); //  KB_TODO: wrong pid? no pid now...
 	/* no mark present, try to add a new one */
 	if (ret == -ENOENT)
-		ret = pnotify_new_watch(group, pid, arg);
+		ret = pnotify_new_watch(group, task, arg);
   mutex_unlock(&group->mark_mutex);
 
 	return ret;
@@ -1065,6 +1060,7 @@ SYSCALL_DEFINE0(pnotify_init)
 SYSCALL_DEFINE4(pnotify_add_watch, int, events_fd, u32, pid, u32, mask,
 		u32, flags)
 {
+  struct task_struct *task = NULL;
 	struct fsnotify_group *group;
   struct fd f;
 	int ret;
@@ -1091,8 +1087,17 @@ SYSCALL_DEFINE4(pnotify_add_watch, int, events_fd, u32, pid, u32, mask,
 	/* group is held in place by fget on fd */
   group = f.file->private_data;
 
-	/* create/update an inode mark */
-	ret = pnotify_update_watch(group, pid, mask);
+  /* create/update an inode mark */
+  rcu_read_lock();
+  task = find_task_by_vpid(pid); // KB_TODO: right one?
+  if (task)
+    get_task_struct(task);
+  rcu_read_unlock();
+
+  ret = pnotify_update_watch(group, task, mask);
+
+  put_task_struct(task);
+
 fput_and_out:
   fdput(f);
 	return ret;
