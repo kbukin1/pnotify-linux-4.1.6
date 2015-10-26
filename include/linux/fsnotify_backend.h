@@ -418,7 +418,7 @@ extern void fsnotify_get_mark(struct fsnotify_mark *mark);
 extern void fsnotify_put_mark(struct fsnotify_mark *mark);
 extern void fsnotify_unmount_inodes(struct super_block *sb);
 
-int pnotify_new_watch(struct fsnotify_group *group, u32 pid, u32 arg);
+int pnotify_new_watch(struct fsnotify_group *group, struct task_struct *task, u32 arg);
 u32 pnotify_mask_to_arg(__u32 mask);
 
 int pnotify_create_process_create_event(struct task_struct *task,
