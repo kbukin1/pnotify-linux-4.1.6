@@ -718,14 +718,12 @@ int pnotify_broadcast_event(struct task_struct *task, u32 event_type, const char
 
 	task_lock(task);
 	hlist_for_each_entry_safe(mark, n, &task->pnotify_marks, obj_list) {
-		// list_add(&mark->t.bcast_t_list, &bcast_list);
-    list_add(&mark->free_list, &bcast_list);
+    list_add(&mark->bcast_t_list, &bcast_list);
 		fsnotify_get_mark(mark); // due to bcast_list copy
 	}
 	task_unlock(task);
 
-	// list_for_each_entry_safe(mark, lmark, &bcast_list, t.bcast_t_list) {
-	list_for_each_entry_safe(mark, lmark, &bcast_list, obj_list) {
+	list_for_each_entry_safe(mark, lmark, &bcast_list, bcast_t_list) {
 		pnotify_debug(PNOTIFY_DEBUG_LEVEL_VERBOSE,
 			      "%s: Sending event (0x%x) message (%s) to observer/mark: 0x%p"
 			      " (mark->mask:"
@@ -739,7 +737,7 @@ int pnotify_broadcast_event(struct task_struct *task, u32 event_type, const char
 							mark->group, event_type, msg);
 		if (lastret)
 			ret = lastret;
-		list_del_init(&mark->obj_list);
+		list_del_init(&mark->bcast_t_list);
 		fsnotify_put_mark(mark); // due to bcast_list copy
 	}
 
