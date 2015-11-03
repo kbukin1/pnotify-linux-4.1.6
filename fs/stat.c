@@ -86,8 +86,7 @@ static inline void pnotify_stat(struct path* path)
   if (S_ISDIR(inode->i_mode))
     mask = FS_ISDIR;
 
-  fsnotify(inode, mask, path, FSNOTIFY_EVENT_PATH, NULL, 0, NULL, 0
-      );
+  fsnotify(inode, mask, path, FSNOTIFY_EVENT_PATH, NULL, 0, NULL, 0);
 }
 #else
 static inline void pnotify_stat(struct path*) {}
