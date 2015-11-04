@@ -77,6 +77,7 @@ int vfs_getattr(struct path *path, struct kstat *stat)
 
 EXPORT_SYMBOL(vfs_getattr);
 
+/*
 #ifdef CONFIG_PNOTIFY_USER
 static inline void pnotify_stat(struct path* path)
 {
@@ -91,7 +92,7 @@ static inline void pnotify_stat(struct path* path)
 #else
 static inline void pnotify_stat(struct path*) {}
 #endif
-
+*/
 
 int vfs_fstat(unsigned int fd, struct kstat *stat)
 {
@@ -100,8 +101,8 @@ int vfs_fstat(unsigned int fd, struct kstat *stat)
 
 	if (f.file) {
 		error = vfs_getattr(&f.file->f_path, stat);
-    if (!error)
-      pnotify_stat(&f.file->f_path);
+    /* if (!error)
+      pnotify_stat(&f.file->f_path); */
 		fdput(f);
 	}
 	return error;
@@ -131,8 +132,8 @@ retry:
 	error = vfs_getattr(&path, stat);
 	path_put(&path);
 #ifdef CONFIG_PNOTIFY_USER
-  if (!error && !(flag & AT_STAT_NONOTIFY))
-    pnotify_stat(&path);
+  /* if (!error && !(flag & AT_STAT_NONOTIFY))
+    pnotify_stat(&path); */
 #endif
 	if (retry_estale(error, lookup_flags)) {
 		lookup_flags |= LOOKUP_REVAL;
