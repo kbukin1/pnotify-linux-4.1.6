@@ -1,4 +1,4 @@
-*
+/*
  * devtmpfs - kernel-maintained tmpfs-based /dev
  *
  * Copyright (C) 2009, Kay Sievers <kay.sievers@vrfy.org>
@@ -324,7 +324,7 @@ static int handle_remove(const char *nodename, struct device *dev)
 			mutex_lock(&d_inode(dentry)->i_mutex);
 			notify_change(dentry, &newattrs, NULL);
 			mutex_unlock(&d_inode(dentry)->i_mutex);
-			err = vfs_unlink(d_inode(parent.dentry), dentry, NULL);
+			err = vfs_unlink(d_inode(parent.dentry), dentry, NULL, &parent);
 			if (!err || err == -ENOENT)
 				deleted = 1;
 		}
