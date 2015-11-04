@@ -36,7 +36,7 @@ static inline int ovl_do_rmdir(struct inode *dir, struct dentry *dentry)
 
 static inline int ovl_do_unlink(struct inode *dir, struct dentry *dentry)
 {
-	int err = vfs_unlink(dir, dentry, NULL);
+	int err = vfs_unlink(dir, dentry, NULL, NULL);
 	pr_debug("unlink(%pd2) = %i\n", dentry, err);
 	return err;
 }
@@ -44,7 +44,7 @@ static inline int ovl_do_unlink(struct inode *dir, struct dentry *dentry)
 static inline int ovl_do_link(struct dentry *old_dentry, struct inode *dir,
 			      struct dentry *new_dentry, bool debug)
 {
-	int err = vfs_link(old_dentry, dir, new_dentry, NULL);
+	int err = vfs_link(old_dentry, dir, new_dentry, NULL, NULL);
 	if (debug) {
 		pr_debug("link(%pd2, %pd2) = %i\n",
 			 old_dentry, new_dentry, err);
@@ -55,7 +55,7 @@ static inline int ovl_do_link(struct dentry *old_dentry, struct inode *dir,
 static inline int ovl_do_create(struct inode *dir, struct dentry *dentry,
 			     umode_t mode, bool debug)
 {
-	int err = vfs_create(dir, dentry, mode, true);
+	int err = vfs_create(dir, dentry, mode, true, NULL);
 	if (debug)
 		pr_debug("create(%pd2, 0%o) = %i\n", dentry, mode, err);
 	return err;
@@ -64,7 +64,7 @@ static inline int ovl_do_create(struct inode *dir, struct dentry *dentry,
 static inline int ovl_do_mkdir(struct inode *dir, struct dentry *dentry,
 			       umode_t mode, bool debug)
 {
-	int err = vfs_mkdir(dir, dentry, mode);
+	int err = vfs_mkdir(dir, dentry, mode, NULL);
 	if (debug)
 		pr_debug("mkdir(%pd2, 0%o) = %i\n", dentry, mode, err);
 	return err;
@@ -73,7 +73,7 @@ static inline int ovl_do_mkdir(struct inode *dir, struct dentry *dentry,
 static inline int ovl_do_mknod(struct inode *dir, struct dentry *dentry,
 			       umode_t mode, dev_t dev, bool debug)
 {
-	int err = vfs_mknod(dir, dentry, mode, dev);
+	int err = vfs_mknod(dir, dentry, mode, dev, NULL);
 	if (debug) {
 		pr_debug("mknod(%pd2, 0%o, 0%o) = %i\n",
 			 dentry, mode, dev, err);
@@ -84,7 +84,7 @@ static inline int ovl_do_mknod(struct inode *dir, struct dentry *dentry,
 static inline int ovl_do_symlink(struct inode *dir, struct dentry *dentry,
 				 const char *oldname, bool debug)
 {
-	int err = vfs_symlink(dir, dentry, oldname);
+	int err = vfs_symlink(dir, dentry, oldname, NULL);
 	if (debug)
 		pr_debug("symlink(\"%s\", %pd2) = %i\n", oldname, dentry, err);
 	return err;
@@ -115,7 +115,7 @@ static inline int ovl_do_rename(struct inode *olddir, struct dentry *olddentry,
 	pr_debug("rename2(%pd2, %pd2, 0x%x)\n",
 		 olddentry, newdentry, flags);
 
-	err = vfs_rename(olddir, olddentry, newdir, newdentry, NULL, flags);
+	err = vfs_rename(olddir, olddentry, newdir, newdentry, NULL, flags, NULL);
 
 	if (err) {
 		pr_debug("...rename2(%pd2, %pd2, ...) = %i\n",
