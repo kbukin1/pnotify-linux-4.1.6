@@ -1415,7 +1415,6 @@ static int lookup_fast(struct nameidata *nd,
 	 */
 	if (nd->flags & LOOKUP_RCU) {
 		unsigned seq;
-		bool negative;
 		dentry = __d_lookup_rcu(parent, &nd->last, &seq);
 		if (!dentry)
 			goto unlazy;
@@ -1425,7 +1424,6 @@ static int lookup_fast(struct nameidata *nd,
 		 * the dentry name information from lookup.
 		 */
 		*inode = dentry->d_inode;
-		negative = d_is_negative(dentry);
 		if (read_seqcount_retry(&dentry->d_seq, seq))
 			return -ECHILD;
 
@@ -1453,8 +1451,10 @@ static int lookup_fast(struct nameidata *nd,
 		 * Note: do negative dentry check after revalidation in
 		 * case that drops it.
 		 */
-		if (negative)
-			return -ENOENT;
+    if (unlikely(d_is_negative(dentry))) {
+      dput(dentry);
+      return -ENOENT;
+    }
 
 		path->mnt = mnt;
 		path->dentry = dentry;
