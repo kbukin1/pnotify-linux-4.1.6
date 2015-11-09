@@ -1451,10 +1451,8 @@ static int lookup_fast(struct nameidata *nd,
 		 * Note: do negative dentry check after revalidation in
 		 * case that drops it.
 		 */
-    if (unlikely(d_is_negative(dentry))) {
-      dput(dentry);
+    if (unlikely(d_is_negative(dentry)))
       return -ENOENT;
-    }
 
 		path->mnt = mnt;
 		path->dentry = dentry;
