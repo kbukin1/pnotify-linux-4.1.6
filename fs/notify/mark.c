@@ -131,7 +131,6 @@ void fsnotify_detach_mark(struct fsnotify_mark *mark)
 {
 	struct inode *inode = NULL;
 	struct fsnotify_group *group = mark->group;
-  struct task_struct *task = NULL; /* KB: probably do not need it */
 
 	BUG_ON(!mutex_is_locked(&group->mark_mutex));
 
