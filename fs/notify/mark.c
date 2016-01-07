@@ -130,7 +130,6 @@ void fsnotify_destroy_mark_locked(struct fsnotify_mark *mark,
 				  struct fsnotify_group *group)
 {
 	struct inode *inode = NULL;
-    struct task_struct *task = NULL;
 
 	BUG_ON(!mutex_is_locked(&group->mark_mutex));
 
@@ -144,17 +143,16 @@ void fsnotify_destroy_mark_locked(struct fsnotify_mark *mark,
 
 	mark->flags &= ~FSNOTIFY_MARK_FLAG_ALIVE;
 
-	if (mark->flags & FSNOTIFY_MARK_FLAG_INODE) {
-		inode = mark->inode;
-		fsnotify_destroy_inode_mark(mark);
-	} else if (mark->flags & FSNOTIFY_MARK_FLAG_VFSMOUNT)
-		fsnotify_destroy_vfsmount_mark(mark);
-    else if (mark->flags & FSNOTIFY_MARK_FLAG_TASK) {
-         task = mark->task;
-         fsnotify_destroy_task_mark(mark);
-    }
-	else
-		BUG();
+  if (mark->flags & FSNOTIFY_MARK_FLAG_INODE) {
+    inode = mark->inode;
+    fsnotify_destroy_inode_mark(mark);
+  } else if (mark->flags & FSNOTIFY_MARK_FLAG_VFSMOUNT)
+    fsnotify_destroy_vfsmount_mark(mark);
+  else if (mark->flags & FSNOTIFY_MARK_FLAG_TASK) {
+    fsnotify_destroy_task_mark(mark);
+  }
+  else
+    BUG();
 
 	list_del_init(&mark->g_list);
 
