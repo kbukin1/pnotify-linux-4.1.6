@@ -308,7 +308,7 @@ int vfs_fallocate(struct file *file, int mode, loff_t offset, loff_t len)
 	 * unchanged, e.g. when using flag FALLOC_FL_KEEP_SIZE.
 	 */
 	if (ret == 0)
-		fsnotify_modify(file);
+		fsnotify_modify(file, 0);
 
 	sb_end_write(inode->i_sb);
 	return ret;
@@ -1019,7 +1019,7 @@ long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
 			put_unused_fd(fd);
 			fd = PTR_ERR(f);
 		} else {
-			fsnotify_open(f);
+			fsnotify_open(f, filename);
 			fd_install(fd, f);
 		}
 	}

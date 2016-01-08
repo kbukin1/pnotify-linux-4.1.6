@@ -612,7 +612,7 @@ static struct fsnotify_mark *fanotify_add_new_mark(struct fsnotify_group *group,
 		return ERR_PTR(-ENOMEM);
 
 	fsnotify_init_mark(mark, fanotify_free_mark);
-	ret = fsnotify_add_mark_locked(mark, group, inode, mnt, 0);
+	ret = fsnotify_add_mark_locked(mark, group, inode, mnt, NULL, 0);
 	if (ret) {
 		fsnotify_put_mark(mark);
 		return ERR_PTR(ret);

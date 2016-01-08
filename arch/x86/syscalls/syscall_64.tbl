@@ -329,6 +329,10 @@
 320	common	kexec_file_load		sys_kexec_file_load
 321	common	bpf			sys_bpf
 322	64	execveat		stub_execveat
+350 64  pnotify_init    sys_pnotify_init
+351 64  pnotify_add_watch sys_pnotify_add_watch
+352 64  pnotify_rm_watch  sys_pnotify_rm_watch
+353 64  pnotify_annotate  sys_pnotify_annotate
 
 #
 # x32-specific system call numbers start at 512 to avoid cache impact

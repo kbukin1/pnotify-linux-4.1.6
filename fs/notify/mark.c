@@ -143,13 +143,16 @@ void fsnotify_destroy_mark_locked(struct fsnotify_mark *mark,
 
 	mark->flags &= ~FSNOTIFY_MARK_FLAG_ALIVE;
 
-	if (mark->flags & FSNOTIFY_MARK_FLAG_INODE) {
-		inode = mark->inode;
-		fsnotify_destroy_inode_mark(mark);
-	} else if (mark->flags & FSNOTIFY_MARK_FLAG_VFSMOUNT)
-		fsnotify_destroy_vfsmount_mark(mark);
-	else
-		BUG();
+  if (mark->flags & FSNOTIFY_MARK_FLAG_INODE) {
+    inode = mark->inode;
+    fsnotify_destroy_inode_mark(mark);
+  } else if (mark->flags & FSNOTIFY_MARK_FLAG_VFSMOUNT)
+    fsnotify_destroy_vfsmount_mark(mark);
+  else if (mark->flags & FSNOTIFY_MARK_FLAG_TASK) {
+    fsnotify_destroy_task_mark(mark);
+  }
+  else
+    BUG();
 
 	list_del_init(&mark->g_list);
 
@@ -232,6 +235,9 @@ void fsnotify_set_mark_mask_locked(struct fsnotify_mark *mark, __u32 mask)
 
 	if (mark->flags & FSNOTIFY_MARK_FLAG_INODE)
 		fsnotify_set_inode_mark_mask_locked(mark, mask);
+    else if (mark->flags & FSNOTIFY_MARK_FLAG_TASK) {
+        fsnotify_set_task_mark_mask_locked(mark, mask);
+    }
 }
 
 void fsnotify_set_mark_ignored_mask_locked(struct fsnotify_mark *mark, __u32 mask)
@@ -317,12 +323,13 @@ int fsnotify_add_mark_list(struct hlist_head *head, struct fsnotify_mark *mark,
  */
 int fsnotify_add_mark_locked(struct fsnotify_mark *mark,
 			     struct fsnotify_group *group, struct inode *inode,
-			     struct vfsmount *mnt, int allow_dups)
+			     struct vfsmount *mnt, struct task_struct *task,
+                 int allow_dups)
 {
 	int ret = 0;
 
 	BUG_ON(inode && mnt);
-	BUG_ON(!inode && !mnt);
+    BUG_ON(!inode && !mnt && !task);
 	BUG_ON(!mutex_is_locked(&group->mark_mutex));
 
 	/*
@@ -348,7 +355,11 @@ int fsnotify_add_mark_locked(struct fsnotify_mark *mark,
 		ret = fsnotify_add_vfsmount_mark(mark, group, mnt, allow_dups);
 		if (ret)
 			goto err;
-	} else {
+	} else if (task) {
+        ret = fsnotify_add_task_mark(mark, group, task, allow_dups);
+        if (ret)
+            goto err;
+    } else {
 		BUG();
 	}
 
@@ -378,11 +389,12 @@ err:
 }
 
 int fsnotify_add_mark(struct fsnotify_mark *mark, struct fsnotify_group *group,
-		      struct inode *inode, struct vfsmount *mnt, int allow_dups)
+		      struct inode *inode, struct vfsmount *mnt, 
+              struct task_struct *task, int allow_dups)
 {
 	int ret;
 	mutex_lock(&group->mark_mutex);
-	ret = fsnotify_add_mark_locked(mark, group, inode, mnt, allow_dups);
+	ret = fsnotify_add_mark_locked(mark, group, inode, mnt, task, allow_dups);
 	mutex_unlock(&group->mark_mutex);
 	return ret;
 }
@@ -512,3 +524,4 @@ static int __init fsnotify_mark_init(void)
 	return 0;
 }
 device_initcall(fsnotify_mark_init);
+

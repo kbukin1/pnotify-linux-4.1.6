@@ -53,6 +53,7 @@
 #include <linux/oom.h>
 #include <linux/writeback.h>
 #include <linux/shm.h>
+#include <linux/fsnotify_backend.h>
 
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
@@ -650,6 +651,32 @@ static void check_stack_usage(void)
 static inline void check_stack_usage(void) {}
 #endif
 
+#ifdef CONFIG_PNOTIFY_USER
+static void delayed_pnotify_cleanup_on_exit(struct callback_head *twork)
+{
+  struct task_struct* task = container_of(twork, struct task_struct, pnotify_cleanup);
+  fsnotify_clear_marks_by_task(task);
+  task->pnotify_mask = 0;
+
+  pnotify_debug(PNOTIFY_DEBUG_LEVEL_DEBUG_EVENTS,
+      "%s: pnotify_marks are cleaned for task %p\n", __func__, task);
+}
+static inline void pnotify_cleanup_on_exit(struct task_struct *task)
+{
+  if (!has_pnotify_tracking(task))
+    return;
+
+  init_task_work(&task->pnotify_cleanup, delayed_pnotify_cleanup_on_exit);
+
+  if (task_work_add(task, &task->pnotify_cleanup, true)) {
+    printk(KERN_WARNING  "%s: task_work_add() failed for task %p\n", __func__, task);
+    BUG();
+  }
+}
+#else
+static inline void pnotify_cleanup_on_exit(struct task_struct *task) {}
+#endif
+
 void do_exit(long code)
 {
 	struct task_struct *tsk = current;
@@ -739,6 +766,7 @@ void do_exit(long code)
 	exit_sem(tsk);
 	exit_shm(tsk);
 	exit_files(tsk);
+  pnotify_cleanup_on_exit(tsk);
 	exit_fs(tsk);
 	if (group_dead)
 		disassociate_ctty(1);

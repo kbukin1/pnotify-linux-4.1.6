@@ -791,6 +791,10 @@ struct user_struct {
 	atomic_t inotify_watches; /* How many inotify watches does this user have? */
 	atomic_t inotify_devs;	/* How many inotify devs does this user have opened? */
 #endif
+#ifdef CONFIG_PNOTIFY_USER
+     atomic_t pnotify_watches; /* How many inotify watches does this user have? */
+     atomic_t pnotify_devs;  /* How many inotify devs does this user have opened? */
+#endif
 #ifdef CONFIG_FANOTIFY
 	atomic_t fanotify_listeners;
 #endif
@@ -1320,6 +1324,11 @@ struct task_struct {
 #ifdef CONFIG_PREEMPT_NOTIFIERS
 	/* list of struct preempt_notifier: */
 	struct hlist_head preempt_notifiers;
+#endif
+#ifdef CONFIG_PNOTIFY_USER
+     u32 pnotify_mask; /* all events this task cares about */
+     struct hlist_head pnotify_marks;
+     struct rcu_head  pnotify_cleanup; /* pnotify related cleanup */
 #endif
 
 #ifdef CONFIG_BLK_DEV_IO_TRACE

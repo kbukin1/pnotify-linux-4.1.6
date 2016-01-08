@@ -84,6 +84,7 @@
 #include <asm/tlbflush.h>
 
 #include <trace/events/sched.h>
+#include <linux/fsnotify_backend.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/task.h>
@@ -1002,6 +1003,46 @@ static int copy_fs(unsigned long clone_flags, struct task_struct *tsk)
 	return 0;
 }
 
+static int copy_pnotify(unsigned long clone_flags /* KB_TODO: unused param? */ , struct task_struct * tsk)
+{
+#ifdef CONFIG_PNOTIFY_USER
+  struct fsnotify_mark *mark;
+  struct hlist_node *n;
+
+  INIT_HLIST_HEAD(&tsk->pnotify_marks);
+
+  /* TODO: take a closer look at how the pnotify_mask is used, and
+     whether it is actually doing anything useful. It was modeled
+     after the inode->mask for inotify, but the two (inode and task
+     monitoring) are not identical. */
+  tsk->pnotify_mask = current->pnotify_mask;
+
+  /* Copy the list from current to tsk */
+
+  /* TODO: originally I thought task_lock(current) would be appropriate
+     here, but that deadlocks for some simple test cases. However, the
+     current->pnotify_marks list is (slightly) exposed here to list
+     corruption, so consider how this should be locked. */
+
+  /* TODO: cleanup: this does not need to be a _safe list operation: */
+  hlist_for_each_entry_safe(mark, n, &current->pnotify_marks,
+      obj_list) {
+    pnotify_debug(PNOTIFY_DEBUG_LEVEL_VERBOSE,
+        "%s: parent task %u, "
+        "new task %u)\n",
+        __func__, current->pid, tsk->pid);
+
+    mutex_lock(&mark->group->mark_mutex);
+    pnotify_new_watch(mark->group, tsk,
+        pnotify_mask_to_arg(mark->mask));
+    mutex_unlock(&mark->group->mark_mutex);
+    pnotify_create_process_create_event(tsk, mark, mark->group);
+  }
+#endif
+  return 0;
+}
+
+
 static int copy_files(unsigned long clone_flags, struct task_struct *tsk)
 {
 	struct files_struct *oldf, *newf;
@@ -1600,6 +1641,9 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 
 	trace_task_newtask(p, clone_flags);
 	uprobe_copy_process(p, clone_flags);
+
+  if ((retval = copy_pnotify(clone_flags, p)))
+    goto bad_fork_free_pid;
 
 	return p;
 
