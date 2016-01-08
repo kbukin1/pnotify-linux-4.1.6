@@ -339,6 +339,8 @@ static int idr_callback(int id, void *p, void *data)
 
 static void pnotify_free_group_priv(struct fsnotify_group *group)
 {
+  pnotify_free_wd_pid_list(group);
+
 	/* ideally the idr is empty and we won't hit the BUG in the callback */
 	idr_for_each(&group->pnotify_data.idr, idr_callback, group);
 	idr_destroy(&group->pnotify_data.idr);
