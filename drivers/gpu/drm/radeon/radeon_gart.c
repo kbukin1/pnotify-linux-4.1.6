@@ -260,10 +260,8 @@ void radeon_gart_unbind(struct radeon_device *rdev, unsigned offset,
 			}
 		}
 	}
-	if (rdev->gart.ptr) {
-		mb();
-		radeon_gart_tlb_flush(rdev);
-	}
+	mb();
+	radeon_gart_tlb_flush(rdev);
 }
 
 /**
@@ -308,10 +306,8 @@ int radeon_gart_bind(struct radeon_device *rdev, unsigned offset,
 			page_base += RADEON_GPU_PAGE_SIZE;
 		}
 	}
-	if (rdev->gart.ptr) {
-		mb();
-		radeon_gart_tlb_flush(rdev);
-	}
+	mb();
+	radeon_gart_tlb_flush(rdev);
 	return 0;
 }
 

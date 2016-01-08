@@ -526,7 +526,7 @@ static int rcar_can_open(struct net_device *ndev)
 	napi_enable(&priv->napi);
 	err = request_irq(ndev->irq, rcar_can_interrupt, 0, ndev->name, ndev);
 	if (err) {
-		netdev_err(ndev, "error requesting interrupt %d\n", ndev->irq);
+		netdev_err(ndev, "error requesting interrupt %x\n", ndev->irq);
 		goto out_close;
 	}
 	can_led_event(ndev, CAN_LED_EVENT_OPEN);
@@ -758,9 +758,8 @@ static int rcar_can_probe(struct platform_device *pdev)
 	}
 
 	irq = platform_get_irq(pdev, 0);
-	if (irq < 0) {
+	if (!irq) {
 		dev_err(&pdev->dev, "No IRQ resource\n");
-		err = irq;
 		goto fail;
 	}
 
@@ -824,7 +823,7 @@ static int rcar_can_probe(struct platform_device *pdev)
 
 	devm_can_led_init(ndev);
 
-	dev_info(&pdev->dev, "device registered (regs @ %p, IRQ%d)\n",
+	dev_info(&pdev->dev, "device registered (reg_base=%p, irq=%u)\n",
 		 priv->regs, ndev->irq);
 
 	return 0;

@@ -685,7 +685,7 @@ int mei_register(struct mei_device *dev, struct device *parent)
 	/* Fill in the data structures */
 	devno = MKDEV(MAJOR(mei_devt), dev->minor);
 	cdev_init(&dev->cdev, &mei_fops);
-	dev->cdev.owner = parent->driver->owner;
+	dev->cdev.owner = mei_fops.owner;
 
 	/* Add the device */
 	ret = cdev_add(&dev->cdev, devno, 1);

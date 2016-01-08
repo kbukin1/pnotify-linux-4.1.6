@@ -494,9 +494,8 @@ out:
 static int ccm4309_aes_nx_encrypt(struct aead_request *req)
 {
 	struct nx_crypto_ctx *nx_ctx = crypto_tfm_ctx(req->base.tfm);
-	struct nx_gcm_rctx *rctx = aead_request_ctx(req);
 	struct blkcipher_desc desc;
-	u8 *iv = rctx->iv;
+	u8 *iv = nx_ctx->priv.ccm.iv;
 
 	iv[0] = 3;
 	memcpy(iv + 1, nx_ctx->priv.ccm.nonce, 3);
@@ -526,9 +525,8 @@ static int ccm_aes_nx_encrypt(struct aead_request *req)
 static int ccm4309_aes_nx_decrypt(struct aead_request *req)
 {
 	struct nx_crypto_ctx *nx_ctx = crypto_tfm_ctx(req->base.tfm);
-	struct nx_gcm_rctx *rctx = aead_request_ctx(req);
 	struct blkcipher_desc desc;
-	u8 *iv = rctx->iv;
+	u8 *iv = nx_ctx->priv.ccm.iv;
 
 	iv[0] = 3;
 	memcpy(iv + 1, nx_ctx->priv.ccm.nonce, 3);
