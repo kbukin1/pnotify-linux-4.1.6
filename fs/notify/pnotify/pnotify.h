@@ -49,3 +49,5 @@ extern int pnotify_handle_event(struct fsnotify_group *group,
     struct path *path, unsigned long status);
 
 extern const struct fsnotify_ops pnotify_fsnotify_ops;
+int pnotify_free_wd_pid_list(struct fsnotify_group *group);
+
