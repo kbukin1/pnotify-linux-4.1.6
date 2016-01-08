@@ -18,7 +18,7 @@ struct pnotify_event_info {
 	signed long	status;		/* KB_TODO probalby need to use platform-independent type */
 
 	int name_len;
-	char *name;
+	char name[];
 };
 
 struct pnotify_inode_mark {
