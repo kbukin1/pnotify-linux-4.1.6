@@ -160,8 +160,10 @@ static int pnotify_fullpath_from_path(struct pnotify_event_info *event,
 		pos = path_name;
 
 	if ( pos && strlen(pos)) {
-		event->name = kstrdup(pos, GFP_KERNEL);
-		event->name_len = strlen(event->name);
+		// event->name = kstrdup(pos, GFP_KERNEL); // XXX: do a real thing
+		// event->name_len = strlen(event->name);
+    event->name_len = 0;
+
 			pnotify_debug(PNOTIFY_DEBUG_LEVEL_DEBUG_EVENTS,
 				      "%s: name found: %s\n", __func__, event->name);
 	}
@@ -208,7 +210,7 @@ int pnotify_handle_event(struct fsnotify_group *group,
 	pr_debug("%s: group=%p inode=%p mask=%x\n", __func__, 
       group, inode, mask);
 	pnotify_debug(PNOTIFY_DEBUG_LEVEL_VERBOSE, 
-      "%s: group=%p data_type=%d inode=%p mask=%x path_for_inode_events=%p data=%p\n", 
+      "%s: group=%p data_type=%d inode=%p mask=%x path_for_inode_events=%p data=%p file_name=%s\n", 
       __func__, group, data_type, inode, mask, path_for_inode_events, data,
       (file_name ? file_name : (unsigned char*) "NULL")); // why file_name is unsigned?
 
@@ -270,19 +272,14 @@ int pnotify_handle_event(struct fsnotify_group *group,
       break;
     case FSNOTIFY_EVENT_NONE:
       event->inode_num = 0;
+      event->name_len = len;
       if (len) {
-        // KB_TODO: need to revisit
-        event->name = kstrdup(file_name, GFP_KERNEL);
-        // strcpy(event->name, file_name);
+        strcpy(event->name, file_name);
       } 
       break;
     default:
       BUG();
   }
-  // XXX-4.1.6
-
-	// if (len)
-		// strcpy(event->name, file_name);
 
 	ret = fsnotify_add_event(group, fsn_event, pnotify_merge);
 	if (ret) {
