@@ -201,7 +201,7 @@ int pnotify_handle_event(struct fsnotify_group *group,
                 data_type, pid, buffer);
           }
           else {
-            len = buffer - page;
+            len = PAGE_SIZE - (buffer - page) - 1;
           }
         }
        }
@@ -225,7 +225,7 @@ int pnotify_handle_event(struct fsnotify_group *group,
                 data_type, pid, buffer);
           }
           else {
-            len = buffer - page;
+            len = PAGE_SIZE - (buffer - page) - 1;
           }
           
         }
@@ -253,7 +253,6 @@ int pnotify_handle_event(struct fsnotify_group *group,
 	fsnotify_init_event(fsn_event, inode, mask);
 	event->wd = i_mark->wd;
 	event->sync_cookie = cookie;
-	event->name_len = len;
 
 	event->tgid = tgid;
 	event->pid = pid;
@@ -261,11 +260,15 @@ int pnotify_handle_event(struct fsnotify_group *group,
 	event->status = status;
 	event->jiffies = get_jiffies_64();
 
-  event->name_len = len;
-  if (len)
+	event->name_len = len;
+  if (len) {
     memcpy(event->name, buffer, len);
+  }
   *(event->name + len) = '\0';
 
+  //pnotify_debug(PNOTIFY_DEBUG_LEVEL_DEBUG_EVENTS,
+  //    "%s: found path: buffer=[%s], len=%d\n", 
+  //    __func__, buffer ? buffer : "NULL", len);
 
   switch (data_type) {
     case FSNOTIFY_EVENT_PATH: {
