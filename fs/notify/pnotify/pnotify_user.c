@@ -862,8 +862,26 @@ static int add_wd_pid_pair(struct fsnotify_group *group, int wd, u32 pid)
 	spin_unlock(&group->pnotify_data.wd_pid_lock);
 
 	pnotify_debug(PNOTIFY_DEBUG_LEVEL_VERBOSE,
-		      "%s: added pair: wd=%d, pid=%u\n", __func__, wd, pid);
+		      "%s: added pair: p=%p, wd=%d, pid=%u\n", __func__, new, wd, pid);
 	return 0;
+}
+
+int pnotify_free_wd_pid_list(struct fsnotify_group *group)
+{
+  struct pnotify_wd_pid_struct *pos, *n;
+
+  spin_lock(&group->pnotify_data.wd_pid_lock);
+  list_for_each_entry_safe(pos, n, &group->pnotify_data.wd_pid_list,
+      pnotify_wd_pid_list_item) {
+    pnotify_debug(PNOTIFY_DEBUG_LEVEL_VERBOSE,
+        "%s: removing pair: p=%p, wd=%d, pid=%u\n", 
+        __func__, pos, pos->wd, pos->pid);
+    list_del_init(&pos->pnotify_wd_pid_list_item);
+    kmem_cache_free(pnotify_wd_pid_cachep, pos);
+  }
+  spin_unlock(&group->pnotify_data.wd_pid_lock);
+
+  return 0;
 }
 
 static int pnotify_perm_check(u32 pid)
