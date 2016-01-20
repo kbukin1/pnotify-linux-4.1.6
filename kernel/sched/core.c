@@ -1823,8 +1823,8 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 #endif
 
 #ifdef CONFIG_PNOTIFY_USER
-  INIT_HLIST_HEAD(&init_task.pnotify_marks);
-  init_task.pnotify_mask = 0;
+  INIT_HLIST_HEAD(&p->pnotify_marks);
+  p->pnotify_mask = 0;
 #endif
 
 #ifdef CONFIG_NUMA_BALANCING
@@ -7247,6 +7247,11 @@ void __init sched_init(void)
 
 #ifdef CONFIG_PREEMPT_NOTIFIERS
 	INIT_HLIST_HEAD(&init_task.preempt_notifiers);
+#endif
+
+#ifdef CONFIG_PNOTIFY_USER
+  INIT_HLIST_HEAD(&init_task.pnotify_marks);
+  init_task.pnotify_mask = 0;
 #endif
 
 	/*
