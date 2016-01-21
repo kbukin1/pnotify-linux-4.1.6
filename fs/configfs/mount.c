@@ -129,6 +129,8 @@ void configfs_release_fs(void)
 }
 
 
+static struct kobject *config_kobj;
+
 static int __init configfs_init(void)
 {
 	int err = -ENOMEM;
@@ -139,8 +141,8 @@ static int __init configfs_init(void)
 	if (!configfs_dir_cachep)
 		goto out;
 
-	err = sysfs_create_mount_point(kernel_kobj, "config");
-	if (err)
+	config_kobj = kobject_create_and_add("config", kernel_kobj);
+	if (!config_kobj)
 		goto out2;
 
 	err = register_filesystem(&configfs_fs_type);
@@ -150,7 +152,7 @@ static int __init configfs_init(void)
 	return 0;
 out3:
 	pr_err("Unable to register filesystem!\n");
-	sysfs_remove_mount_point(kernel_kobj, "config");
+	kobject_put(config_kobj);
 out2:
 	kmem_cache_destroy(configfs_dir_cachep);
 	configfs_dir_cachep = NULL;
@@ -161,7 +163,7 @@ out:
 static void __exit configfs_exit(void)
 {
 	unregister_filesystem(&configfs_fs_type);
-	sysfs_remove_mount_point(kernel_kobj, "config");
+	kobject_put(config_kobj);
 	kmem_cache_destroy(configfs_dir_cachep);
 	configfs_dir_cachep = NULL;
 }

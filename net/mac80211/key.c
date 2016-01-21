@@ -66,15 +66,12 @@ update_vlan_tailroom_need_count(struct ieee80211_sub_if_data *sdata, int delta)
 	if (sdata->vif.type != NL80211_IFTYPE_AP)
 		return;
 
-	/* crypto_tx_tailroom_needed_cnt is protected by this */
-	assert_key_lock(sdata->local);
+	mutex_lock(&sdata->local->mtx);
 
-	rcu_read_lock();
-
-	list_for_each_entry_rcu(vlan, &sdata->u.ap.vlans, u.vlan.list)
+	list_for_each_entry(vlan, &sdata->u.ap.vlans, u.vlan.list)
 		vlan->crypto_tx_tailroom_needed_cnt += delta;
 
-	rcu_read_unlock();
+	mutex_unlock(&sdata->local->mtx);
 }
 
 static void increment_tailroom_need_count(struct ieee80211_sub_if_data *sdata)
@@ -98,8 +95,6 @@ static void increment_tailroom_need_count(struct ieee80211_sub_if_data *sdata)
 	 * http://mid.gmane.org/1308590980.4322.19.camel@jlt3.sipsolutions.net
 	 */
 
-	assert_key_lock(sdata->local);
-
 	update_vlan_tailroom_need_count(sdata, 1);
 
 	if (!sdata->crypto_tx_tailroom_needed_cnt++) {
@@ -114,8 +109,6 @@ static void increment_tailroom_need_count(struct ieee80211_sub_if_data *sdata)
 static void decrease_tailroom_need_count(struct ieee80211_sub_if_data *sdata,
 					 int delta)
 {
-	assert_key_lock(sdata->local);
-
 	WARN_ON_ONCE(sdata->crypto_tx_tailroom_needed_cnt < delta);
 
 	update_vlan_tailroom_need_count(sdata, -delta);

@@ -213,7 +213,6 @@ struct acpi_table_list {
 
 #define ACPI_TABLE_INDEX_DSDT           (0)
 #define ACPI_TABLE_INDEX_FACS           (1)
-#define ACPI_TABLE_INDEX_X_FACS         (2)
 
 struct acpi_find_context {
 	char *search_for;

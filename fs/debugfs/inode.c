@@ -716,17 +716,20 @@ bool debugfs_initialized(void)
 }
 EXPORT_SYMBOL_GPL(debugfs_initialized);
 
+
+static struct kobject *debug_kobj;
+
 static int __init debugfs_init(void)
 {
 	int retval;
 
-	retval = sysfs_create_mount_point(kernel_kobj, "debug");
-	if (retval)
-		return retval;
+	debug_kobj = kobject_create_and_add("debug", kernel_kobj);
+	if (!debug_kobj)
+		return -EINVAL;
 
 	retval = register_filesystem(&debug_fs_type);
 	if (retval)
-		sysfs_remove_mount_point(kernel_kobj, "debug");
+		kobject_put(debug_kobj);
 	else
 		debugfs_registered = true;
 

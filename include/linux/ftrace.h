@@ -116,7 +116,6 @@ ftrace_func_t ftrace_ops_get_func(struct ftrace_ops *ops);
  *            SAVE_REGS. If another ops with this flag set is already registered
  *            for any of the functions that this ops will be registered for, then
  *            this ops will fail to register or set_filter_ip.
- * PID     - Is affected by set_ftrace_pid (allows filtering on those pids)
  */
 enum {
 	FTRACE_OPS_FL_ENABLED			= 1 << 0,
@@ -133,7 +132,6 @@ enum {
 	FTRACE_OPS_FL_MODIFYING			= 1 << 11,
 	FTRACE_OPS_FL_ALLOC_TRAMP		= 1 << 12,
 	FTRACE_OPS_FL_IPMODIFY			= 1 << 13,
-	FTRACE_OPS_FL_PID			= 1 << 14,
 };
 
 #ifdef CONFIG_DYNAMIC_FTRACE
@@ -161,7 +159,6 @@ struct ftrace_ops {
 	struct ftrace_ops		*next;
 	unsigned long			flags;
 	void				*private;
-	ftrace_func_t			saved_func;
 	int __percpu			*disabled;
 #ifdef CONFIG_DYNAMIC_FTRACE
 	int				nr_trampolines;

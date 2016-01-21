@@ -129,9 +129,8 @@ struct tpm_chip *tpmm_chip_alloc(struct device *dev,
 
 	device_initialize(&chip->dev);
 
-	cdev_init(&chip->cdev, &tpm_fops);
 	chip->cdev.owner = chip->pdev->driver->owner;
-	chip->cdev.kobj.parent = &chip->dev.kobj;
+	cdev_init(&chip->cdev, &tpm_fops);
 
 	return chip;
 }

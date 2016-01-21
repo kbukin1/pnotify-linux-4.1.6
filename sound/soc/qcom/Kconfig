@@ -6,10 +6,12 @@ config SND_SOC_QCOM
 
 config SND_SOC_LPASS_CPU
 	tristate
+	depends on SND_SOC_QCOM
 	select REGMAP_MMIO
 
 config SND_SOC_LPASS_PLATFORM
 	tristate
+	depends on SND_SOC_QCOM
 	select REGMAP_MMIO
 
 config SND_SOC_STORM

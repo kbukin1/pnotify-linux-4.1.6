@@ -679,6 +679,7 @@ err:
 		ocrdma_release_ucontext_pd(uctx);
 	} else {
 		status = _ocrdma_dealloc_pd(dev, pd);
+		kfree(pd);
 	}
 exit:
 	return ERR_PTR(status);
