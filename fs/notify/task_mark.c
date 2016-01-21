@@ -83,14 +83,9 @@ void fsnotify_destroy_task_mark(struct fsnotify_mark *mark)
 	 * hold the task->alloc_lock, so this is the perfect time to update the
 	 * task->pnotify_mask
 	 */
-#if 0
-	fsnotify_recalc_task_mask_locked(task);
-
-	task_unlock(task);
-	put_task_struct(task);
-#endif
 	task->pnotify_mask = fsnotify_recalc_mask(&task->pnotify_marks);
 	task_unlock(task);
+	put_task_struct(task);
 }
 
 /*
@@ -129,36 +124,12 @@ void fsnotify_clear_task_marks_by_group(struct fsnotify_group *group)
  * given a group and task, find the mark associated with that combination.
  * if found take a reference to that mark and return it, else return NULL
  */
-#if 0
-struct fsnotify_mark *fsnotify_find_task_mark_locked(struct fsnotify_group *group,
-						     struct task_struct *task)
-{
-	struct fsnotify_mark *mark;
-	struct hlist_node *pos;
-
-	assert_spin_locked(&task->alloc_lock);
-
-	hlist_for_each_entry(mark, &task->pnotify_marks, t.t_list) {
-		if (mark->group == group) {
-			fsnotify_get_mark(mark);
-			return mark;
-		}
-	}
-	return NULL;
-}
-#endif
-
-/*
- * given a group and task, find the mark associated with that combination.
- * if found take a reference to that mark and return it, else return NULL
- */
 struct fsnotify_mark *fsnotify_find_task_mark(struct fsnotify_group *group,
 					     struct task_struct *task)
 {
 	struct fsnotify_mark *mark;
 
 	task_lock(task);
-	// mark = fsnotify_find_task_mark_locked(group, task);
 	mark = fsnotify_find_mark(&task->pnotify_marks, group);
 	task_unlock(task);
 
