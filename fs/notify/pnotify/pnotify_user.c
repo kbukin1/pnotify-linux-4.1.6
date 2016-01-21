@@ -1310,7 +1310,7 @@ static int __init pnotify_user_setup(void)
 
 	pnotify_debug_print_level = 0;
 	pnotify_major_version = 1;
-	pnotify_minor_version = 20;
+	pnotify_minor_version = 21;
 
 	return 0;
 }
