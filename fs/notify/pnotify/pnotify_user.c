@@ -1040,6 +1040,7 @@ static struct fsnotify_group *pnotify_new_group(unsigned int max_events)
 
   if (atomic_inc_return(&group->pnotify_data.user->pnotify_devs) >
       pnotify_max_user_instances) {
+    kfree(oevent);
     fsnotify_put_group(group);
     return ERR_PTR(-EMFILE);
   }
@@ -1069,8 +1070,11 @@ SYSCALL_DEFINE0(pnotify_init)
 	/* fsnotify_obtain_group took a reference to group, we put this when
 	   we kill the file in the end */
 	group = pnotify_new_group(pnotify_max_queued_events);
-	if (IS_ERR(group))
+	if (IS_ERR(group)) {
+    pnotify_debug(PNOTIFY_DEBUG_LEVEL_MINIMAL,
+        "%s: group alloc failed, group=%p\n", __func__, group);
 		return PTR_ERR(group);
+  }
 
 	ret = anon_inode_getfd("pnotify", &pnotify_fops, group,
 				  O_RDONLY);
