@@ -820,8 +820,8 @@ struct user_struct {
 	atomic_t inotify_devs;	/* How many inotify devs does this user have opened? */
 #endif
 #ifdef CONFIG_PNOTIFY_USER
-     atomic_t pnotify_watches; /* How many inotify watches does this user have? */
-     atomic_t pnotify_devs;  /* How many inotify devs does this user have opened? */
+     atomic_t pnotify_watches; /* How many pnotify watches does this user have? */
+     atomic_t pnotify_devs;  /* How many pnotify devs does this user have opened? */
 #endif
 #ifdef CONFIG_FANOTIFY
 	atomic_t fanotify_listeners;
