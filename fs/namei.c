@@ -2823,7 +2823,7 @@ static int atomic_open(struct nameidata *nd, struct dentry *dentry,
 	acc_mode = op->acc_mode;
 	if (*opened & FILE_CREATED) {
 		WARN_ON(!(open_flag & O_CREAT));
-		fsnotify_create(dir, dentry, 0);
+		fsnotify_create(dir, dentry, path);
 		acc_mode = MAY_OPEN;
 	}
 	error = may_open(&file->f_path, acc_mode, open_flag);
@@ -3480,7 +3480,7 @@ int vfs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev,
 
 	error = dir->i_op->mknod(dir, dentry, mode, dev);
 	if (!error)
-		fsnotify_create(dir, dentry, 0);
+		fsnotify_create(dir, dentry, path);
 	return error;
 }
 EXPORT_SYMBOL(vfs_mknod);
