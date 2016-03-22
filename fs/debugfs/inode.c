@@ -343,7 +343,7 @@ struct dentry *debugfs_create_file(const char *name, umode_t mode,
 	inode->i_fop = fops ? fops : &debugfs_file_operations;
 	inode->i_private = data;
 	d_instantiate(dentry, inode);
-	fsnotify_create(d_inode(dentry->d_parent), dentry, 0);
+	fsnotify_create(d_inode(dentry->d_parent), dentry, NULL);
 	return end_creating(dentry);
 }
 EXPORT_SYMBOL_GPL(debugfs_create_file);

@@ -112,6 +112,8 @@ static char* pnotify_fullpath_from_path(char* buff,
 {
   int length;
 	char* ret = buff + buff_size - 1;
+  char *page = NULL;
+  char *path_name = NULL;
 
   if (!buff || buff_size <= 0)
     return ERR_PTR(-EINVAL);
@@ -134,14 +136,41 @@ static char* pnotify_fullpath_from_path(char* buff,
 
   if (path_arg && current->fs /* KB_TODO: need to understand why current->fs is sometimes zero */ ) {
     path_get(path_arg);
-		ret = d_path(path_arg, buff, ret - buff);
-    path_put(path_arg);
 
-		if (IS_ERR(ret)) {
+    page = (char *) __get_free_page(GFP_KERNEL);
+    if (!page) {
+      path_put(path_arg);
+      return ERR_PTR(-ENOMEM);
+    }
+
+    path_name = d_path(path_arg, page, PAGE_SIZE);
+
+		if (IS_ERR(path_name)) {
 			pnotify_debug(PNOTIFY_DEBUG_LEVEL_DEBUG_EVENTS,
-          "%s: dpath failed: %p\n", __func__, ret);
+          "%s: d_path failed: %p\n", __func__, path_name);
+      path_name = NULL;
 		}
+
+    path_put(path_arg);
 	}
+
+  if (path_name) {
+    ret--;
+    *ret = '/';
+
+    length = strlen(path_name);
+    if (unlikely(length >= (ret - buff))) {
+      ret =  ERR_PTR(-ENOMEM);
+      goto out;
+    }
+
+    memcpy(ret - length, path_name, length);
+    ret -= length;
+  }
+
+out:
+  if (page)
+    free_page((unsigned long) page);
 
   return ret;
 }
