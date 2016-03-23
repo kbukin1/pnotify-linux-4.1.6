@@ -155,8 +155,10 @@ static char* pnotify_fullpath_from_path(char* buff,
 	}
 
   if (path_name) {
-    ret--;
-    *ret = '/';
+    if (*ret != '\0') {
+      ret--;
+      *ret = '/';
+    }
 
     length = strlen(path_name);
     if (unlikely(length >= (ret - buff))) {
