@@ -256,7 +256,7 @@ static inline void fsnotify_modify(struct file *file, ssize_t count)
 
 	if (!(file->f_mode & FMODE_NONOTIFY)) {
 		fsnotify_parent(path, NULL, mask, NULL);
-		fsnotify(inode, mask, path, FSNOTIFY_EVENT_PATH, NULL, 0, NULL, 0);
+		fsnotify(inode, mask, path, FSNOTIFY_EVENT_PATH, NULL, 0, NULL, count);
 	}
 }
 
