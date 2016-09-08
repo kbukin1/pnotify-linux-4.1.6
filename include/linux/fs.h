@@ -1497,7 +1497,8 @@ extern int vfs_symlink(struct inode *, struct dentry *, const char *, struct pat
 extern int vfs_link(struct dentry *, struct inode *, struct dentry *, struct inode **, struct path *);
 extern int vfs_rmdir(struct inode *, struct dentry *);
 extern int vfs_unlink(struct inode *, struct dentry *, struct inode **, struct path *);
-extern int vfs_rename(struct inode *, struct dentry *, struct inode *, struct dentry *, struct inode **, unsigned int, struct path *); // KB_TODO: check all the arguments... blah-blah.... look at the corresponding 3.18.9 change
+extern int vfs_rename(struct inode *, struct dentry *, struct inode *, struct dentry *, struct inode **, unsigned int,
+                      struct path *, struct path *); 
 extern int vfs_whiteout(struct inode *, struct dentry *);
 
 /*
