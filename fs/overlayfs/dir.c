@@ -897,7 +897,7 @@ static int ovl_rename2(struct inode *olddir, struct dentry *old,
 		BUG_ON(flags & ~RENAME_EXCHANGE);
 		err = vfs_rename(old_upperdir->d_inode, olddentry,
 				 new_upperdir->d_inode, newdentry,
-				 NULL, flags, NULL);
+				 NULL, flags, NULL, NULL);
 	}
 
 	if (err) {

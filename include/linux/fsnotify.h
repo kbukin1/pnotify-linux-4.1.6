@@ -88,7 +88,7 @@ static inline void fsnotify_link_count(struct inode *inode, struct path* path)
 static inline void fsnotify_move(struct inode *old_dir, struct inode *new_dir,
 				 const unsigned char *old_name,
 				 int isdir, struct inode *target, struct dentry *moved, 
-                 struct path *old_path, struct path *new_path)
+         struct path *old_path, struct path *new_path)
 {
 	struct inode *source = moved->d_inode;
 	u32 fs_cookie = fsnotify_get_cookie();
@@ -103,6 +103,12 @@ static inline void fsnotify_move(struct inode *old_dir, struct inode *new_dir,
 		old_dir_mask |= FS_ISDIR;
 		new_dir_mask |= FS_ISDIR;
 	}
+
+  /*
+  pnotify_debug(PNOTIFY_DEBUG_LEVEL_VERBOSE,
+      "%s: old_path=%p, new_path=%p\n", 
+      __func__, old_path, new_path);
+  */
 
 	fsnotify(old_dir, old_dir_mask, source, FSNOTIFY_EVENT_INODE, old_name,
 		 fs_cookie, old_path, 0);

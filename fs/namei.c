@@ -4140,7 +4140,7 @@ SYSCALL_DEFINE2(link, const char __user *, oldname, const char __user *, newname
 int vfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	       struct inode *new_dir, struct dentry *new_dentry,
 	       struct inode **delegated_inode, unsigned int flags,
-           struct path *path)
+         struct path *old_path, struct path *new_path)
 {
 	int error;
 	bool is_dir = d_is_dir(old_dentry);
@@ -4260,10 +4260,11 @@ out:
 	dput(new_dentry);
 	if (!error) {
 		fsnotify_move(old_dir, new_dir, old_name, is_dir,
-			      !(flags & RENAME_EXCHANGE) ? target : NULL, old_dentry, 0, 0);
+			      !(flags & RENAME_EXCHANGE) ? target : NULL, old_dentry, 
+            old_path, new_path);
 		if (flags & RENAME_EXCHANGE) {
 			fsnotify_move(new_dir, old_dir, old_dentry->d_name.name,
-				      new_is_dir, NULL, new_dentry, 0, 0);
+				      new_is_dir, NULL, new_dentry, new_path, old_path);
 		}
 	}
 	fsnotify_oldname_free(old_name);
@@ -4386,7 +4387,7 @@ retry_deleg:
 		goto exit5;
 	error = vfs_rename(old_dir->d_inode, old_dentry,
 			   new_dir->d_inode, new_dentry,
-			   &delegated_inode, flags,0);  // KB_TODO last arg 0 seems wrong
+			   &delegated_inode, flags,&oldnd.path,&newnd.path); 
 exit5:
 	dput(new_dentry);
 exit4:

@@ -388,7 +388,8 @@ try_again:
 		cachefiles_io_error(cache, "Rename security error %d", ret);
 	} else {
 		ret = vfs_rename(d_inode(dir), rep,
-				 d_inode(cache->graveyard), grave, NULL, &path, &path_to_graveyard);
+				 d_inode(cache->graveyard), grave, NULL, 0,
+         &path, &path_to_graveyard);
 		if (ret != 0 && ret != -ENOMEM)
 			cachefiles_io_error(cache,
 					    "Rename failed with error %d", ret);
