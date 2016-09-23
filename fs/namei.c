@@ -4270,8 +4270,8 @@ out:
 			      !(flags & RENAME_EXCHANGE) ? target : NULL, old_dentry, 
             old_path, new_path);
 		if (flags & RENAME_EXCHANGE) {
-			fsnotify_move(new_dir, old_dir, old_dentry->d_name.name,
-				      new_is_dir, NULL, new_dentry, new_path, old_path);
+			fsnotify_move(new_dir, old_dir, old_dentry->d_name.name,     /* note the first two args are swapped */
+				      new_is_dir, NULL, new_dentry, new_path, old_path); /* note the last  two args are swapped */
 		}
 	}
 	fsnotify_oldname_free(old_name);
