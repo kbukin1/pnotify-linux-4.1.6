@@ -104,12 +104,6 @@ static inline void fsnotify_move(struct inode *old_dir, struct inode *new_dir,
 		new_dir_mask |= FS_ISDIR;
 	}
 
-  /*
-  pnotify_debug(PNOTIFY_DEBUG_LEVEL_VERBOSE,
-      "%s: old_path=%p, new_path=%p\n", 
-      __func__, old_path, new_path);
-  */
-
 	fsnotify(old_dir, old_dir_mask, source, FSNOTIFY_EVENT_INODE, old_name,
 		 fs_cookie, old_path, 0);
 	fsnotify(new_dir, new_dir_mask, source, FSNOTIFY_EVENT_INODE, new_name,
