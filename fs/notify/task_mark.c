@@ -109,7 +109,8 @@ void fsnotify_clear_marks_by_task(struct task_struct *task)
     pnotify_create_process_exit_event(task, mark, mark->group);
   }
 
-	fsnotify_destroy_marks(&free_list);
+  /* XXX KB_TODO: need to figure out what lock to use XXX XXX XXX */
+	/* fsnotify_destroy_marks(&free_list); */
 }
 
 /*

@@ -144,17 +144,16 @@ void fsnotify_detach_mark(struct fsnotify_mark *mark)
 
 	mark->flags &= ~FSNOTIFY_MARK_FLAG_ATTACHED;
 
-	if (mark->flags & FSNOTIFY_MARK_FLAG_INODE) {
-		inode = mark->inode;
-		fsnotify_destroy_inode_mark(mark);
-	} else if (mark->flags & FSNOTIFY_MARK_FLAG_VFSMOUNT)
-		fsnotify_destroy_vfsmount_mark(mark);
-    else if (mark->flags & FSNOTIFY_MARK_FLAG_TASK) {
-         task = mark->task;
-         fsnotify_destroy_task_mark(mark);
-    }
-	else
-		BUG();
+  if (mark->flags & FSNOTIFY_MARK_FLAG_INODE) {
+    inode = mark->inode;
+    fsnotify_destroy_inode_mark(mark);
+  } else if (mark->flags & FSNOTIFY_MARK_FLAG_VFSMOUNT)
+    fsnotify_destroy_vfsmount_mark(mark);
+  else if (mark->flags & FSNOTIFY_MARK_FLAG_TASK) {
+    fsnotify_destroy_task_mark(mark);
+  }
+  else
+    BUG();
 	/*
 	 * Note that we didn't update flags telling whether inode cares about
 	 * what's happening with children. We update these flags from

@@ -1316,7 +1316,7 @@ static int __init pnotify_user_setup(void)
 
 	return 0;
 }
-module_init(pnotify_user_setup);
+fs_initcall(pnotify_user_setup);
 
 /* Enables pnotify, if non-zero. Default: 1.
  * Sets /proc/sys/fs/pnotify/is_active :

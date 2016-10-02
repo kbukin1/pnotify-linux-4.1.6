@@ -238,6 +238,8 @@ struct fsnotify_mark {
 	spinlock_t lock;
 	/* List of marks for inode / vfsmount [obj_lock] */
 	struct hlist_node obj_list;
+  struct list_head free_list; /* tmp list used when freeing this mark */
+  struct list_head bcast_t_list; /*  tmp list used when broadcasting events to this mark */
 	union {	/* Object pointer [mark->lock, group->mark_mutex] */
 		struct inode *inode;	/* inode this mark is associated with */
 		struct vfsmount *mnt;	/* vfsmount this mark is associated with */
@@ -251,6 +253,7 @@ struct fsnotify_mark {
 #define FSNOTIFY_MARK_FLAG_IGNORED_SURV_MODIFY	0x08
 #define FSNOTIFY_MARK_FLAG_ALIVE		0x10
 #define FSNOTIFY_MARK_FLAG_ATTACHED		0x20
+#define FSNOTIFY_MARK_FLAG_TASK     0x40
 	unsigned int flags;		/* flags [mark->lock] */
 	void (*free_mark)(struct fsnotify_mark *mark); /* called on final put+free */
 };

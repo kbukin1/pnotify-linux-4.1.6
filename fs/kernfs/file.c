@@ -861,7 +861,7 @@ repeat:
 		}
 
 		fsnotify(inode, FS_MODIFY, inode, FSNOTIFY_EVENT_INODE,
-			 kn->name, 0);
+			 kn->name, 0, 0, 0);
 		iput(inode);
 	}
 
