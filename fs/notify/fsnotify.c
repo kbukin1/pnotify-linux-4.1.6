@@ -226,7 +226,7 @@ int fsnotify(struct inode *to_tell, __u32 mask, void *data, int data_is,
 	struct fsnotify_group *inode_group, *vfsmount_group, *task_group = NULL;
 	struct mount *mnt;
 	int idx, ret = 0;
-    int is_pnotify_event = has_pnotify_tracking(current);
+  int is_pnotify_event = has_pnotify_tracking(current);
 
 	/* global tests shouldn't care about events on child only the specific event */
 	__u32 test_mask = (mask & ~FS_EVENT_ON_CHILD);
