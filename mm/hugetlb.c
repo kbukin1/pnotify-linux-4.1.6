@@ -40,6 +40,11 @@ int hugepages_treat_as_movable;
 int hugetlb_max_hstate __read_mostly;
 unsigned int default_hstate_idx;
 struct hstate hstates[HUGE_MAX_HSTATE];
+/*
+ * Minimum page order among possible hugepage sizes, set to a proper value
+ * at boot time.
+ */
+static unsigned int minimum_order __read_mostly = UINT_MAX;
 
 __initdata LIST_HEAD(huge_boot_pages);
 
@@ -750,7 +755,7 @@ static int hstate_next_node_to_free(struct hstate *h, nodemask_t *nodes_allowed)
 
 #if defined(CONFIG_CMA) && defined(CONFIG_X86_64)
 static void destroy_compound_gigantic_page(struct page *page,
-					unsigned long order)
+					unsigned int order)
 {
 	int i;
 	int nr_pages = 1 << order;
@@ -766,7 +771,7 @@ static void destroy_compound_gigantic_page(struct page *page,
 	__ClearPageHead(page);
 }
 
-static void free_gigantic_page(struct page *page, unsigned order)
+static void free_gigantic_page(struct page *page, unsigned int order)
 {
 	free_contig_range(page_to_pfn(page), 1 << order);
 }
@@ -810,7 +815,7 @@ static bool zone_spans_last_pfn(const struct zone *zone,
 	return zone_spans_pfn(zone, last_pfn);
 }
 
-static struct page *alloc_gigantic_page(int nid, unsigned order)
+static struct page *alloc_gigantic_page(int nid, unsigned int order)
 {
 	unsigned long nr_pages = 1 << order;
 	unsigned long ret, pfn, flags;
@@ -846,7 +851,7 @@ static struct page *alloc_gigantic_page(int nid, unsigned order)
 }
 
 static void prep_new_huge_page(struct hstate *h, struct page *page, int nid);
-static void prep_compound_gigantic_page(struct page *page, unsigned long order);
+static void prep_compound_gigantic_page(struct page *page, unsigned int order);
 
 static struct page *alloc_fresh_gigantic_page_node(struct hstate *h, int nid)
 {
@@ -879,9 +884,9 @@ static int alloc_fresh_gigantic_page(struct hstate *h,
 static inline bool gigantic_page_supported(void) { return true; }
 #else
 static inline bool gigantic_page_supported(void) { return false; }
-static inline void free_gigantic_page(struct page *page, unsigned order) { }
+static inline void free_gigantic_page(struct page *page, unsigned int order) { }
 static inline void destroy_compound_gigantic_page(struct page *page,
-						unsigned long order) { }
+						unsigned int order) { }
 static inline int alloc_fresh_gigantic_page(struct hstate *h,
 					nodemask_t *nodes_allowed) { return 0; }
 #endif
@@ -1008,7 +1013,7 @@ static void prep_new_huge_page(struct hstate *h, struct page *page, int nid)
 	put_page(page); /* free it into the hugepage allocator */
 }
 
-static void prep_compound_gigantic_page(struct page *page, unsigned long order)
+static void prep_compound_gigantic_page(struct page *page, unsigned int order)
 {
 	int i;
 	int nr_pages = 1 << order;
@@ -1188,19 +1193,13 @@ static void dissolve_free_huge_page(struct page *page)
  */
 void dissolve_free_huge_pages(unsigned long start_pfn, unsigned long end_pfn)
 {
-	unsigned int order = 8 * sizeof(void *);
 	unsigned long pfn;
-	struct hstate *h;
 
 	if (!hugepages_supported())
 		return;
 
-	/* Set scan step to minimum hugepage size */
-	for_each_hstate(h)
-		if (order > huge_page_order(h))
-			order = huge_page_order(h);
-	VM_BUG_ON(!IS_ALIGNED(start_pfn, 1 << order));
-	for (pfn = start_pfn; pfn < end_pfn; pfn += 1 << order)
+	VM_BUG_ON(!IS_ALIGNED(start_pfn, 1 << minimum_order));
+	for (pfn = start_pfn; pfn < end_pfn; pfn += 1 << minimum_order)
 		dissolve_free_huge_page(pfn_to_page(pfn));
 }
 
@@ -1568,7 +1567,8 @@ found:
 	return 1;
 }
 
-static void __init prep_compound_huge_page(struct page *page, int order)
+static void __init prep_compound_huge_page(struct page *page,
+		unsigned int order)
 {
 	if (unlikely(order > (MAX_ORDER - 1)))
 		prep_compound_gigantic_page(page, order);
@@ -1627,10 +1627,14 @@ static void __init hugetlb_init_hstates(void)
 	struct hstate *h;
 
 	for_each_hstate(h) {
+		if (minimum_order > huge_page_order(h))
+			minimum_order = huge_page_order(h);
+
 		/* oversize hugepages were init'ed in early boot */
 		if (!hstate_is_gigantic(h))
 			hugetlb_hstate_alloc_pages(h);
 	}
+	VM_BUG_ON(minimum_order == UINT_MAX);
 }
 
 static char * __init memfmt(char *buf, unsigned long n)
@@ -1752,6 +1756,10 @@ static unsigned long set_max_huge_pages(struct hstate *h, unsigned long count,
 		 * and reducing the surplus.
 		 */
 		spin_unlock(&hugetlb_lock);
+
+		/* yield cpu to avoid soft lockup */
+		cond_resched();
+
 		if (hstate_is_gigantic(h))
 			ret = alloc_fresh_gigantic_page(h, nodes_allowed);
 		else
@@ -2275,7 +2283,7 @@ static int __init hugetlb_init(void)
 module_init(hugetlb_init);
 
 /* Should be called on processing a hugepagesz=... option */
-void __init hugetlb_add_hstate(unsigned order)
+void __init hugetlb_add_hstate(unsigned int order)
 {
 	struct hstate *h;
 	unsigned long i;
@@ -2891,6 +2899,14 @@ static void unmap_ref_private(struct mm_struct *mm, struct vm_area_struct *vma,
 	vma_interval_tree_foreach(iter_vma, &mapping->i_mmap, pgoff, pgoff) {
 		/* Do not unmap the current VMA */
 		if (iter_vma == vma)
+			continue;
+
+		/*
+		 * Shared VMAs have their own reserves and do not affect
+		 * MAP_PRIVATE accounting but it is possible that a shared
+		 * VMA is using the same page so check and skip such VMAs.
+		 */
+		if (iter_vma->vm_flags & VM_MAYSHARE)
 			continue;
 
 		/*

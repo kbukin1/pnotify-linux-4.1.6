@@ -513,7 +513,7 @@ static void async_completed(struct urb *urb)
 	snoop(&urb->dev->dev, "urb complete\n");
 	snoop_urb(urb->dev, as->userurb, urb->pipe, urb->actual_length,
 			as->status, COMPLETE, NULL, 0);
-	if ((urb->transfer_flags & URB_DIR_MASK) == USB_DIR_IN)
+	if ((urb->transfer_flags & URB_DIR_MASK) == URB_DIR_IN)
 		snoop_urb_data(urb, urb->actual_length);
 
 	if (as->status < 0 && as->bulk_addr && as->status != -ECONNRESET &&
@@ -1526,11 +1526,17 @@ static int proc_do_submiturb(struct usb_dev_state *ps, struct usbdevfs_urb *uurb
 	as->urb->start_frame = uurb->start_frame;
 	as->urb->number_of_packets = number_of_packets;
 	as->urb->stream_id = stream_id;
-	if (uurb->type == USBDEVFS_URB_TYPE_ISO ||
-			ps->dev->speed == USB_SPEED_HIGH)
-		as->urb->interval = 1 << min(15, ep->desc.bInterval - 1);
-	else
-		as->urb->interval = ep->desc.bInterval;
+
+	if (ep->desc.bInterval) {
+		if (uurb->type == USBDEVFS_URB_TYPE_ISO ||
+				ps->dev->speed == USB_SPEED_HIGH ||
+				ps->dev->speed >= USB_SPEED_SUPER)
+			as->urb->interval = 1 <<
+					min(15, ep->desc.bInterval - 1);
+		else
+			as->urb->interval = ep->desc.bInterval;
+	}
+
 	as->urb->context = as;
 	as->urb->complete = async_completed;
 	for (totlen = u = 0; u < number_of_packets; u++) {

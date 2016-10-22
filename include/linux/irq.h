@@ -467,6 +467,7 @@ extern int irq_chip_set_affinity_parent(struct irq_data *data,
 					const struct cpumask *dest,
 					bool force);
 extern int irq_chip_set_wake_parent(struct irq_data *data, unsigned int on);
+extern int irq_chip_set_type_parent(struct irq_data *data, unsigned int type);
 #endif
 
 /* Handling of unhandled and spurious interrupts: */
@@ -850,6 +851,16 @@ static inline void irq_gc_unlock(struct irq_chip_generic *gc)
 static inline void irq_gc_lock(struct irq_chip_generic *gc) { }
 static inline void irq_gc_unlock(struct irq_chip_generic *gc) { }
 #endif
+
+/*
+ * The irqsave variants are for usage in non interrupt code. Do not use
+ * them in irq_chip callbacks. Use irq_gc_lock() instead.
+ */
+#define irq_gc_lock_irqsave(gc, flags)	\
+	raw_spin_lock_irqsave(&(gc)->lock, flags)
+
+#define irq_gc_unlock_irqrestore(gc, flags)	\
+	raw_spin_unlock_irqrestore(&(gc)->lock, flags)
 
 static inline void irq_reg_writel(struct irq_chip_generic *gc,
 				  u32 val, int reg_offset)

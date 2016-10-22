@@ -324,6 +324,22 @@ static void save_error_info(struct super_block *sb, const char *func,
 	ext4_commit_super(sb, 1);
 }
 
+/*
+ * The del_gendisk() function uninitializes the disk-specific data
+ * structures, including the bdi structure, without telling anyone
+ * else.  Once this happens, any attempt to call mark_buffer_dirty()
+ * (for example, by ext4_commit_super), will cause a kernel OOPS.
+ * This is a kludge to prevent these oops until we can put in a proper
+ * hook in del_gendisk() to inform the VFS and file system layers.
+ */
+static int block_device_ejected(struct super_block *sb)
+{
+	struct inode *bd_inode = sb->s_bdev->bd_inode;
+	struct backing_dev_info *bdi = inode_to_bdi(bd_inode);
+
+	return bdi->dev == NULL;
+}
+
 static void ext4_journal_commit_callback(journal_t *journal, transaction_t *txn)
 {
 	struct super_block		*sb = journal->j_private;
@@ -380,9 +396,13 @@ static void ext4_handle_error(struct super_block *sb)
 		smp_wmb();
 		sb->s_flags |= MS_RDONLY;
 	}
-	if (test_opt(sb, ERRORS_PANIC))
+	if (test_opt(sb, ERRORS_PANIC)) {
+		if (EXT4_SB(sb)->s_journal &&
+		  !(EXT4_SB(sb)->s_journal->j_flags & JBD2_REC_ERR))
+			return;
 		panic("EXT4-fs (device %s): panic forced after error\n",
 			sb->s_id);
+	}
 }
 
 #define ext4_error_ratelimit(sb)					\
@@ -571,8 +591,12 @@ void __ext4_abort(struct super_block *sb, const char *function,
 			jbd2_journal_abort(EXT4_SB(sb)->s_journal, -EIO);
 		save_error_info(sb, function, line);
 	}
-	if (test_opt(sb, ERRORS_PANIC))
+	if (test_opt(sb, ERRORS_PANIC)) {
+		if (EXT4_SB(sb)->s_journal &&
+		  !(EXT4_SB(sb)->s_journal->j_flags & JBD2_REC_ERR))
+			return;
 		panic("EXT4-fs panic from previous error\n");
+	}
 }
 
 void __ext4_msg(struct super_block *sb,
@@ -807,6 +831,7 @@ static void ext4_put_super(struct super_block *sb)
 		dump_orphan_list(sb, sbi);
 	J_ASSERT(list_empty(&sbi->s_orphan));
 
+	sync_blockdev(sb->s_bdev);
 	invalidate_bdev(sb->s_bdev);
 	if (sbi->journal_bdev && sbi->journal_bdev != sb->s_bdev) {
 		/*
@@ -920,6 +945,7 @@ static void init_once(void *foo)
 	INIT_LIST_HEAD(&ei->i_orphan);
 	init_rwsem(&ei->xattr_sem);
 	init_rwsem(&ei->i_data_sem);
+	init_rwsem(&ei->i_mmap_sem);
 	inode_init_once(&ei->vfs_inode);
 }
 
@@ -1250,9 +1276,9 @@ static int set_qf_name(struct super_block *sb, int qtype, substring_t *args)
 		return -1;
 	}
 	if (EXT4_HAS_RO_COMPAT_FEATURE(sb, EXT4_FEATURE_RO_COMPAT_QUOTA)) {
-		ext4_msg(sb, KERN_ERR, "Cannot set journaled quota options "
-			 "when QUOTA feature is enabled");
-		return -1;
+		ext4_msg(sb, KERN_INFO, "Journaled quota options "
+			 "ignored when QUOTA feature is enabled");
+		return 1;
 	}
 	qname = match_strdup(args);
 	if (!qname) {
@@ -1610,10 +1636,10 @@ static int handle_mount_opt(struct super_block *sb, char *opt, int token,
 		}
 		if (EXT4_HAS_RO_COMPAT_FEATURE(sb,
 					       EXT4_FEATURE_RO_COMPAT_QUOTA)) {
-			ext4_msg(sb, KERN_ERR,
-				 "Cannot set journaled quota options "
+			ext4_msg(sb, KERN_INFO,
+				 "Quota format mount options ignored "
 				 "when QUOTA feature is enabled");
-			return -1;
+			return 1;
 		}
 		sbi->s_jquota_fmt = m->mount_opt;
 #endif
@@ -1670,11 +1696,11 @@ static int parse_options(char *options, struct super_block *sb,
 #ifdef CONFIG_QUOTA
 	if (EXT4_HAS_RO_COMPAT_FEATURE(sb, EXT4_FEATURE_RO_COMPAT_QUOTA) &&
 	    (test_opt(sb, USRQUOTA) || test_opt(sb, GRPQUOTA))) {
-		ext4_msg(sb, KERN_ERR, "Cannot set quota options when QUOTA "
-			 "feature is enabled");
-		return 0;
-	}
-	if (sbi->s_qf_names[USRQUOTA] || sbi->s_qf_names[GRPQUOTA]) {
+		ext4_msg(sb, KERN_INFO, "Quota feature enabled, usrquota and grpquota "
+			 "mount options ignored.");
+		clear_opt(sb, USRQUOTA);
+		clear_opt(sb, GRPQUOTA);
+	} else if (sbi->s_qf_names[USRQUOTA] || sbi->s_qf_names[GRPQUOTA]) {
 		if (test_opt(sb, USRQUOTA) && sbi->s_qf_names[USRQUOTA])
 			clear_opt(sb, USRQUOTA);
 
@@ -1737,10 +1763,10 @@ static inline void ext4_show_quota_options(struct seq_file *seq,
 	}
 
 	if (sbi->s_qf_names[USRQUOTA])
-		seq_printf(seq, ",usrjquota=%s", sbi->s_qf_names[USRQUOTA]);
+		seq_show_option(seq, "usrjquota", sbi->s_qf_names[USRQUOTA]);
 
 	if (sbi->s_qf_names[GRPQUOTA])
-		seq_printf(seq, ",grpjquota=%s", sbi->s_qf_names[GRPQUOTA]);
+		seq_show_option(seq, "grpjquota", sbi->s_qf_names[GRPQUOTA]);
 #endif
 }
 
@@ -2056,6 +2082,7 @@ void ext4_group_desc_csum_set(struct super_block *sb, __u32 block_group,
 
 /* Called at mount-time, super-block is locked */
 static int ext4_check_descriptors(struct super_block *sb,
+				  ext4_fsblk_t sb_block,
 				  ext4_group_t *first_not_zeroed)
 {
 	struct ext4_sb_info *sbi = EXT4_SB(sb);
@@ -2086,6 +2113,11 @@ static int ext4_check_descriptors(struct super_block *sb,
 			grp = i;
 
 		block_bitmap = ext4_block_bitmap(sb, gdp);
+		if (block_bitmap == sb_block) {
+			ext4_msg(sb, KERN_ERR, "ext4_check_descriptors: "
+				 "Block bitmap for group %u overlaps "
+				 "superblock", i);
+		}
 		if (block_bitmap < first_block || block_bitmap > last_block) {
 			ext4_msg(sb, KERN_ERR, "ext4_check_descriptors: "
 			       "Block bitmap for group %u not in group "
@@ -2093,6 +2125,11 @@ static int ext4_check_descriptors(struct super_block *sb,
 			return 0;
 		}
 		inode_bitmap = ext4_inode_bitmap(sb, gdp);
+		if (inode_bitmap == sb_block) {
+			ext4_msg(sb, KERN_ERR, "ext4_check_descriptors: "
+				 "Inode bitmap for group %u overlaps "
+				 "superblock", i);
+		}
 		if (inode_bitmap < first_block || inode_bitmap > last_block) {
 			ext4_msg(sb, KERN_ERR, "ext4_check_descriptors: "
 			       "Inode bitmap for group %u not in group "
@@ -2100,6 +2137,11 @@ static int ext4_check_descriptors(struct super_block *sb,
 			return 0;
 		}
 		inode_table = ext4_inode_table(sb, gdp);
+		if (inode_table == sb_block) {
+			ext4_msg(sb, KERN_ERR, "ext4_check_descriptors: "
+				 "Inode table for group %u overlaps "
+				 "superblock", i);
+		}
 		if (inode_table < first_block ||
 		    inode_table + sbi->s_itb_per_group - 1 > last_block) {
 			ext4_msg(sb, KERN_ERR, "ext4_check_descriptors: "
@@ -2202,6 +2244,16 @@ static void ext4_orphan_cleanup(struct super_block *sb,
 
 	while (es->s_last_orphan) {
 		struct inode *inode;
+
+		/*
+		 * We may have encountered an error during cleanup; if
+		 * so, skip the rest.
+		 */
+		if (EXT4_SB(sb)->s_mount_state & EXT4_ERROR_FS) {
+			jbd_debug(1, "Skipping orphan recovery on fs with errors.\n");
+			es->s_last_orphan = 0;
+			break;
+		}
 
 		inode = ext4_orphan_get(sb, le32_to_cpu(es->s_last_orphan));
 		if (IS_ERR(inode)) {
@@ -3685,6 +3737,13 @@ static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 		goto failed_mount;
 	}
 
+	if (le16_to_cpu(sbi->s_es->s_reserved_gdt_blocks) > (blocksize / 4)) {
+		ext4_msg(sb, KERN_ERR,
+			 "Number of reserved GDT blocks insanely large: %d",
+			 le16_to_cpu(sbi->s_es->s_reserved_gdt_blocks));
+		goto failed_mount;
+	}
+
 	if (sbi->s_mount_opt & EXT4_MOUNT_DAX) {
 		if (blocksize != PAGE_SIZE) {
 			ext4_msg(sb, KERN_ERR,
@@ -3946,7 +4005,7 @@ static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 			goto failed_mount2;
 		}
 	}
-	if (!ext4_check_descriptors(sb, &first_not_zeroed)) {
+	if (!ext4_check_descriptors(sb, logical_sb_block, &first_not_zeroed)) {
 		ext4_msg(sb, KERN_ERR, "group descriptors corrupted!");
 		goto failed_mount2;
 	}
@@ -4590,7 +4649,7 @@ static int ext4_commit_super(struct super_block *sb, int sync)
 	struct buffer_head *sbh = EXT4_SB(sb)->s_sbh;
 	int error = 0;
 
-	if (!sbh)
+	if (!sbh || block_device_ejected(sb))
 		return error;
 	if (buffer_write_io_error(sbh)) {
 		/*
@@ -4806,10 +4865,11 @@ static int ext4_freeze(struct super_block *sb)
 		error = jbd2_journal_flush(journal);
 		if (error < 0)
 			goto out;
+
+		/* Journal blocked and flushed, clear needs_recovery flag. */
+		EXT4_CLEAR_INCOMPAT_FEATURE(sb, EXT4_FEATURE_INCOMPAT_RECOVER);
 	}
 
-	/* Journal blocked and flushed, clear needs_recovery flag. */
-	EXT4_CLEAR_INCOMPAT_FEATURE(sb, EXT4_FEATURE_INCOMPAT_RECOVER);
 	error = ext4_commit_super(sb, 1);
 out:
 	if (journal)
@@ -4827,8 +4887,11 @@ static int ext4_unfreeze(struct super_block *sb)
 	if (sb->s_flags & MS_RDONLY)
 		return 0;
 
-	/* Reset the needs_recovery flag before the fs is unlocked. */
-	EXT4_SET_INCOMPAT_FEATURE(sb, EXT4_FEATURE_INCOMPAT_RECOVER);
+	if (EXT4_SB(sb)->s_journal) {
+		/* Reset the needs_recovery flag before the fs is unlocked. */
+		EXT4_SET_INCOMPAT_FEATURE(sb, EXT4_FEATURE_INCOMPAT_RECOVER);
+	}
+
 	ext4_commit_super(sb, 1);
 	return 0;
 }
@@ -4942,6 +5005,9 @@ static int ext4_remount(struct super_block *sb, int *flags, char *data)
 		ext4_init_journal_params(sb, sbi->s_journal);
 		set_task_ioprio(sbi->s_journal->j_task, journal_ioprio);
 	}
+
+	if (*flags & MS_LAZYTIME)
+		sb->s_flags |= MS_LAZYTIME;
 
 	if ((*flags & MS_RDONLY) != (sb->s_flags & MS_RDONLY)) {
 		if (sbi->s_mount_flags & EXT4_MF_FS_ABORTED) {
@@ -5239,6 +5305,20 @@ static int ext4_quota_on_mount(struct super_block *sb, int type)
 					EXT4_SB(sb)->s_jquota_fmt, type);
 }
 
+static void lockdep_set_quota_inode(struct inode *inode, int subclass)
+{
+	struct ext4_inode_info *ei = EXT4_I(inode);
+
+	/* The first argument of lockdep_set_subclass has to be
+	 * *exactly* the same as the argument to init_rwsem() --- in
+	 * this case, in init_once() --- or lockdep gets unhappy
+	 * because the name of the lock is set using the
+	 * stringification of the argument to init_rwsem().
+	 */
+	(void) ei;	/* shut up clang warning if !CONFIG_LOCKDEP */
+	lockdep_set_subclass(&ei->i_data_sem, subclass);
+}
+
 /*
  * Standard function to be called on quota_on
  */
@@ -5278,8 +5358,12 @@ static int ext4_quota_on(struct super_block *sb, int type, int format_id,
 		if (err)
 			return err;
 	}
-
-	return dquot_quota_on(sb, type, format_id, path);
+	lockdep_set_quota_inode(path->dentry->d_inode, I_DATA_SEM_QUOTA);
+	err = dquot_quota_on(sb, type, format_id, path);
+	if (err)
+		lockdep_set_quota_inode(path->dentry->d_inode,
+					     I_DATA_SEM_NORMAL);
+	return err;
 }
 
 static int ext4_quota_enable(struct super_block *sb, int type, int format_id,
@@ -5305,8 +5389,11 @@ static int ext4_quota_enable(struct super_block *sb, int type, int format_id,
 
 	/* Don't account quota for quota files to avoid recursion */
 	qf_inode->i_flags |= S_NOQUOTA;
+	lockdep_set_quota_inode(qf_inode, I_DATA_SEM_QUOTA);
 	err = dquot_enable(qf_inode, type, format_id, flags);
 	iput(qf_inode);
+	if (err)
+		lockdep_set_quota_inode(qf_inode, I_DATA_SEM_NORMAL);
 
 	return err;
 }

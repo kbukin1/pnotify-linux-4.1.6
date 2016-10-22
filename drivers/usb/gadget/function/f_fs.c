@@ -646,24 +646,23 @@ static void ffs_user_copy_worker(struct work_struct *work)
 						   work);
 	int ret = io_data->req->status ? io_data->req->status :
 					 io_data->req->actual;
+	bool kiocb_has_eventfd = io_data->kiocb->ki_flags & IOCB_EVENTFD;
 
 	if (io_data->read && ret > 0) {
 		use_mm(io_data->mm);
 		ret = copy_to_iter(io_data->buf, ret, &io_data->data);
-		if (iov_iter_count(&io_data->data))
+		if (ret != io_data->req->actual && iov_iter_count(&io_data->data))
 			ret = -EFAULT;
 		unuse_mm(io_data->mm);
 	}
 
 	io_data->kiocb->ki_complete(io_data->kiocb, ret, ret);
 
-	if (io_data->ffs->ffs_eventfd &&
-	    !(io_data->kiocb->ki_flags & IOCB_EVENTFD))
+	if (io_data->ffs->ffs_eventfd && !kiocb_has_eventfd)
 		eventfd_signal(io_data->ffs->ffs_eventfd, 1);
 
 	usb_ep_free_request(io_data->ep, io_data->req);
 
-	io_data->kiocb->private = NULL;
 	if (io_data->read)
 		kfree(io_data->to_free);
 	kfree(io_data->buf);
@@ -924,7 +923,8 @@ static ssize_t ffs_epfile_write_iter(struct kiocb *kiocb, struct iov_iter *from)
 
 	kiocb->private = p;
 
-	kiocb_set_cancel_fn(kiocb, ffs_aio_cancel);
+	if (p->aio)
+		kiocb_set_cancel_fn(kiocb, ffs_aio_cancel);
 
 	res = ffs_epfile_io(kiocb->ki_filp, p);
 	if (res == -EIOCBQUEUED)
@@ -968,7 +968,8 @@ static ssize_t ffs_epfile_read_iter(struct kiocb *kiocb, struct iov_iter *to)
 
 	kiocb->private = p;
 
-	kiocb_set_cancel_fn(kiocb, ffs_aio_cancel);
+	if (p->aio)
+		kiocb_set_cancel_fn(kiocb, ffs_aio_cancel);
 
 	res = ffs_epfile_io(kiocb->ki_filp, p);
 	if (res == -EIOCBQUEUED)
@@ -3435,6 +3436,7 @@ done:
 static void ffs_closed(struct ffs_data *ffs)
 {
 	struct ffs_dev *ffs_obj;
+	struct f_fs_opts *opts;
 
 	ENTER();
 	ffs_dev_lock();
@@ -3449,8 +3451,13 @@ static void ffs_closed(struct ffs_data *ffs)
 	    ffs_obj->ffs_closed_callback)
 		ffs_obj->ffs_closed_callback(ffs);
 
-	if (!ffs_obj->opts || ffs_obj->opts->no_configfs
-	    || !ffs_obj->opts->func_inst.group.cg_item.ci_parent)
+	if (ffs_obj->opts)
+		opts = ffs_obj->opts;
+	else
+		goto done;
+
+	if (opts->no_configfs || !opts->func_inst.group.cg_item.ci_parent
+	    || !atomic_read(&opts->func_inst.group.cg_item.ci_kref.refcount))
 		goto done;
 
 	unregister_gadget_item(ffs_obj->opts->

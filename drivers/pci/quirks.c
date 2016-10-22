@@ -288,6 +288,18 @@ static void quirk_citrine(struct pci_dev *dev)
 }
 DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_IBM,	PCI_DEVICE_ID_IBM_CITRINE,	quirk_citrine);
 
+/*
+ * This chip can cause bus lockups if config addresses above 0x600
+ * are read or written.
+ */
+static void quirk_nfp6000(struct pci_dev *dev)
+{
+	dev->cfg_size = 0x600;
+}
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_NETRONOME,	PCI_DEVICE_ID_NETRONOME_NFP4000,	quirk_nfp6000);
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_NETRONOME,	PCI_DEVICE_ID_NETRONOME_NFP6000,	quirk_nfp6000);
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_NETRONOME,	PCI_DEVICE_ID_NETRONOME_NFP6000_VF,	quirk_nfp6000);
+
 /*  On IBM Crocodile ipr SAS adapters, expand BAR to system page size */
 static void quirk_extend_bar_to_page(struct pci_dev *dev)
 {
@@ -1576,6 +1588,18 @@ DECLARE_PCI_FIXUP_RESUME_EARLY(PCI_VENDOR_ID_JMICRON, PCI_DEVICE_ID_JMICRON_JMB3
 
 #endif
 
+static void quirk_jmicron_async_suspend(struct pci_dev *dev)
+{
+	if (dev->multifunction) {
+		device_disable_async_suspend(&dev->dev);
+		dev_info(&dev->dev, "async suspend disabled to avoid multi-function power-on ordering issue\n");
+	}
+}
+DECLARE_PCI_FIXUP_CLASS_FINAL(PCI_VENDOR_ID_JMICRON, PCI_ANY_ID, PCI_CLASS_STORAGE_IDE, 8, quirk_jmicron_async_suspend);
+DECLARE_PCI_FIXUP_CLASS_FINAL(PCI_VENDOR_ID_JMICRON, PCI_ANY_ID, PCI_CLASS_STORAGE_SATA_AHCI, 0, quirk_jmicron_async_suspend);
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_JMICRON, 0x2362, quirk_jmicron_async_suspend);
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_JMICRON, 0x236f, quirk_jmicron_async_suspend);
+
 #ifdef CONFIG_X86_IO_APIC
 static void quirk_alder_ioapic(struct pci_dev *pdev)
 {
@@ -1902,6 +1926,31 @@ static void quirk_netmos(struct pci_dev *dev)
 }
 DECLARE_PCI_FIXUP_CLASS_HEADER(PCI_VENDOR_ID_NETMOS, PCI_ANY_ID,
 			 PCI_CLASS_COMMUNICATION_SERIAL, 8, quirk_netmos);
+
+/*
+ * Quirk non-zero PCI functions to route VPD access through function 0 for
+ * devices that share VPD resources between functions.  The functions are
+ * expected to be identical devices.
+ */
+static void quirk_f0_vpd_link(struct pci_dev *dev)
+{
+	struct pci_dev *f0;
+
+	if (!PCI_FUNC(dev->devfn))
+		return;
+
+	f0 = pci_get_slot(dev->bus, PCI_DEVFN(PCI_SLOT(dev->devfn), 0));
+	if (!f0)
+		return;
+
+	if (f0->vpd && dev->class == f0->class &&
+	    dev->vendor == f0->vendor && dev->device == f0->device)
+		dev->dev_flags |= PCI_DEV_FLAGS_VPD_REF_F0;
+
+	pci_dev_put(f0);
+}
+DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_VENDOR_ID_INTEL, PCI_ANY_ID,
+			      PCI_CLASS_NETWORK_ETHERNET, 8, quirk_f0_vpd_link);
 
 static void quirk_e100_interrupt(struct pci_dev *dev)
 {
@@ -2838,12 +2887,15 @@ DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x3c28, vtd_mask_spec_errors);
 
 static void fixup_ti816x_class(struct pci_dev *dev)
 {
+	u32 class = dev->class;
+
 	/* TI 816x devices do not have class code set when in PCIe boot mode */
-	dev_info(&dev->dev, "Setting PCI class for 816x PCIe device\n");
-	dev->class = PCI_CLASS_MULTIMEDIA_VIDEO;
+	dev->class = PCI_CLASS_MULTIMEDIA_VIDEO << 8;
+	dev_info(&dev->dev, "PCI class overridden (%#08x -> %#08x)\n",
+		 class, dev->class);
 }
 DECLARE_PCI_FIXUP_CLASS_EARLY(PCI_VENDOR_ID_TI, 0xb800,
-				 PCI_CLASS_NOT_DEFINED, 0, fixup_ti816x_class);
+			      PCI_CLASS_NOT_DEFINED, 0, fixup_ti816x_class);
 
 /* Some PCIe devices do not work reliably with the claimed maximum
  * payload size supported.
@@ -3068,13 +3120,15 @@ static void quirk_no_bus_reset(struct pci_dev *dev)
 }
 
 /*
- * Atheros AR93xx chips do not behave after a bus reset.  The device will
- * throw a Link Down error on AER-capable systems and regardless of AER,
- * config space of the device is never accessible again and typically
- * causes the system to hang or reset when access is attempted.
+ * Some Atheros AR9xxx and QCA988x chips do not behave after a bus reset.
+ * The device will throw a Link Down error on AER-capable systems and
+ * regardless of AER, config space of the device is never accessible again
+ * and typically causes the system to hang or reset when access is attempted.
  * http://www.spinics.net/lists/linux-pci/msg34797.html
  */
 DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_ATHEROS, 0x0030, quirk_no_bus_reset);
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_ATHEROS, 0x0032, quirk_no_bus_reset);
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_ATHEROS, 0x003c, quirk_no_bus_reset);
 
 static void quirk_no_pm_reset(struct pci_dev *dev)
 {

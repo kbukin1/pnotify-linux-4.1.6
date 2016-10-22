@@ -1531,12 +1531,6 @@ static struct ctl_table vm_table[] = {
 	{ }
 };
 
-#if defined(CONFIG_BINFMT_MISC) || defined(CONFIG_BINFMT_MISC_MODULE)
-static struct ctl_table binfmt_misc_table[] = {
-	{ }
-};
-#endif
-
 static struct ctl_table fs_table[] = {
 	{
 		.procname	= "inode-nr",
@@ -1690,7 +1684,7 @@ static struct ctl_table fs_table[] = {
 	{
 		.procname	= "binfmt_misc",
 		.mode		= 0555,
-		.child		= binfmt_misc_table,
+		.child		= sysctl_mount_point,
 	},
 #endif
 	{
@@ -1700,6 +1694,20 @@ static struct ctl_table fs_table[] = {
 		.mode		= 0644,
 		.proc_handler	= &pipe_proc_fn,
 		.extra1		= &pipe_min_size,
+	},
+	{
+		.procname	= "pipe-user-pages-hard",
+		.data		= &pipe_user_pages_hard,
+		.maxlen		= sizeof(pipe_user_pages_hard),
+		.mode		= 0644,
+		.proc_handler	= proc_doulongvec_minmax,
+	},
+	{
+		.procname	= "pipe-user-pages-soft",
+		.data		= &pipe_user_pages_soft,
+		.maxlen		= sizeof(pipe_user_pages_soft),
+		.mode		= 0644,
+		.proc_handler	= proc_doulongvec_minmax,
 	},
 	{ }
 };
