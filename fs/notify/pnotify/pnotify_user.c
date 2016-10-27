@@ -1094,9 +1094,12 @@ SYSCALL_DEFINE4(pnotify_add_watch, int, events_fd, u32, pid, u32, mask,
 	struct fsnotify_group *group;
   struct fd f;
 	int ret;
+  
+  /*
 	ret = pnotify_perm_check(pid);
 	if (ret)
 		return ret;
+  */ 
 
   // KB_TODO: verify if mask has a valid value
 
