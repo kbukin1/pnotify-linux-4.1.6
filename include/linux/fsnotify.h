@@ -18,6 +18,8 @@
 #include <linux/pnotify.h>
 #include <linux/namei.h>
 
+#include <asm/uaccess.h>
+
 /*
  * fsnotify_d_instantiate - instantiate a dentry for inode
  */
@@ -165,6 +167,7 @@ static inline u32 fsnotify_symlink(const char __user *filename)
   struct path link_path;
   u32 fs_cookie = 0;
   __u32 mask = PN_SYMLINK;
+  char kpath[PATH_MAX] = {0};
 
   if (!filename || !has_pnotify_tracking(current))
     return fs_cookie;
@@ -175,7 +178,10 @@ static inline u32 fsnotify_symlink(const char __user *filename)
     if (S_ISDIR(stat.mode))
       mask = FS_ISDIR;
 
-    error = kern_path(filename, LOOKUP_AUTOMOUNT, &link_path);
+    if (unlikely(copy_from_user(kpath, filename, strlen_user(filename))))
+      return fs_cookie;
+
+    error = kern_path(kpath, LOOKUP_AUTOMOUNT, &link_path);
     if (!error) {
       fs_cookie = fsnotify_get_cookie();
       fsnotify(link_path.dentry->d_inode, mask, &link_path, FSNOTIFY_EVENT_PATH,
