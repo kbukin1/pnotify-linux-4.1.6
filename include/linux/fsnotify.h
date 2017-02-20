@@ -189,6 +189,8 @@ static inline u32 fsnotify_symlink(const char __user *filename)
     if (unlikely(!page))
       return -ENOMEM;
 
+    // KB_TODO: if you have it, consider using strncpy_from_unsafe() 
+    //          inistead of copy_from_user()
     if (!copy_from_user(page, filename, klength)) {
       error = kern_path(page, LOOKUP_AUTOMOUNT, &link_path);
       if (!error) {
