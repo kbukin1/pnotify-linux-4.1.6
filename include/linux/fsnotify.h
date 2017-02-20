@@ -168,6 +168,7 @@ static inline u32 fsnotify_symlink(const char __user *filename)
   u32 fs_cookie = 0;
   __u32 mask = PN_SYMLINK;
   char kpath[PATH_MAX] = {0};
+  unsigned long klength;
 
   if (!filename || !has_pnotify_tracking(current))
     return fs_cookie;
@@ -178,7 +179,8 @@ static inline u32 fsnotify_symlink(const char __user *filename)
     if (S_ISDIR(stat.mode))
       mask = FS_ISDIR;
 
-    if (unlikely(copy_from_user(kpath, filename, strlen_user(filename))))
+    klength = strlen_user(filename);
+    if (unlikely(copy_from_user(kpath, filename, klength < PATH_MAX ? klength : PATH_MAX)))
       return fs_cookie;
 
     error = kern_path(kpath, LOOKUP_AUTOMOUNT, &link_path);
