@@ -160,7 +160,7 @@ static inline void fsnotify_inoderemove(struct inode *inode, struct path* path)
 /*
   * an event is sent if filename is a symlink
   * KB_TODO: the assumption is PATH_MAX <= PAGE_SIZE (fine for x86*)
-  *          revisit to ensur it works on other architectures
+  *          revisit to ensure it works on other architectures
   */
 static inline u32 fsnotify_symlink(const char __user *filename)
 {
