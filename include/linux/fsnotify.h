@@ -159,6 +159,8 @@ static inline void fsnotify_inoderemove(struct inode *inode, struct path* path)
 
 /*
   * an event is sent if filename is a symlink
+  * KB_TODO: the assumption is PATH_MAX <= PAGE_SIZE (fine for x86*)
+  *          revisit to ensur it works on other architectures
   */
 static inline u32 fsnotify_symlink(const char __user *filename)
 {
@@ -167,8 +169,8 @@ static inline u32 fsnotify_symlink(const char __user *filename)
   struct path link_path;
   u32 fs_cookie = 0;
   __u32 mask = PN_SYMLINK;
-  char kpath[PATH_MAX] = {0};
   unsigned long klength;
+  char* page = 0;
 
   if (!filename || !has_pnotify_tracking(current))
     return fs_cookie;
@@ -180,16 +182,24 @@ static inline u32 fsnotify_symlink(const char __user *filename)
       mask = FS_ISDIR;
 
     klength = strlen_user(filename);
-    if (unlikely(copy_from_user(kpath, filename, klength < PATH_MAX ? klength : PATH_MAX)))
-      return fs_cookie;
+    if (unlikely(klength > PAGE_SIZE))
+      klength = PAGE_SIZE;
 
-    error = kern_path(kpath, LOOKUP_AUTOMOUNT, &link_path);
-    if (!error) {
-      fs_cookie = fsnotify_get_cookie();
-      fsnotify(link_path.dentry->d_inode, mask, &link_path, FSNOTIFY_EVENT_PATH,
-          NULL, fs_cookie, NULL, 0);
-      path_put(&link_path);
+    page = (char *) __get_free_page(GFP_KERNEL);
+    if (unlikely(!page))
+      return -ENOMEM;
+
+    if (!copy_from_user(page, filename, klength)) {
+      error = kern_path(page, LOOKUP_AUTOMOUNT, &link_path);
+      if (!error) {
+        fs_cookie = fsnotify_get_cookie();
+        fsnotify(link_path.dentry->d_inode, mask, &link_path, FSNOTIFY_EVENT_PATH,
+            NULL, fs_cookie, NULL, 0);
+        path_put(&link_path);
+      }
     }
+
+    free_page((unsigned long) page);
   }
 
   return fs_cookie;
