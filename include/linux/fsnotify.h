@@ -192,6 +192,7 @@ static inline u32 fsnotify_symlink(const char __user *filename)
     // KB_TODO: if you have it, consider using strncpy_from_unsafe() 
     //          inistead of copy_from_user()
     if (!copy_from_user(page, filename, klength)) {
+      page[PAGE_SIZE] = '\0';
       error = kern_path(page, LOOKUP_AUTOMOUNT, &link_path);
       if (!error) {
         fs_cookie = fsnotify_get_cookie();
